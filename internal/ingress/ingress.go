@@ -3,6 +3,7 @@ package ingress
 import (
 	"bufio"
 	"gopublic/internal/dashboard"
+	"gopublic/internal/middleware"
 	"gopublic/internal/server"
 	"io"
 	"log"
@@ -32,6 +33,13 @@ func (i *Ingress) Handler() http.Handler {
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.Default()
+
+	// Determine if we're in secure mode (HTTPS)
+	rootDomain := os.Getenv("DOMAIN_NAME")
+	isSecure := rootDomain != "" && rootDomain != "localhost" && rootDomain != "127.0.0.1"
+
+	// Add CSRF middleware for dashboard routes
+	r.Use(middleware.SetCSRFToken(&middleware.CSRFConfig{Secure: isSecure}))
 
 	// Register Dashboard Routes (will be handled via Host matching in middleware or here)
 	// Actually, `dashboard.Handler.RegisterRoutes` registers routes on `r`.

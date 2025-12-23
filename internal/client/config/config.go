@@ -9,7 +9,19 @@ import (
 
 type Config struct {
 	Token string `yaml:"token"`
-	// Additional global configs can go here
+}
+
+// ProjectConfig represents gopublic.yaml project configuration
+type ProjectConfig struct {
+	Version string             `yaml:"version"`
+	Tunnels map[string]*Tunnel `yaml:"tunnels"`
+}
+
+// Tunnel represents a single tunnel configuration
+type Tunnel struct {
+	Proto     string `yaml:"proto"`     // http, https, tcp
+	Addr      string `yaml:"addr"`      // local port or host:port
+	Subdomain string `yaml:"subdomain"` // subdomain to bind
 }
 
 func GetConfigPath() (string, error) {
@@ -54,4 +66,23 @@ func SaveConfig(cfg *Config) error {
 	}
 
 	return os.WriteFile(path, data, 0600)
+}
+
+// LoadProjectConfig loads gopublic.yaml from the specified path or current directory
+func LoadProjectConfig(path string) (*ProjectConfig, error) {
+	if path == "" {
+		path = "gopublic.yaml"
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg ProjectConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
 }

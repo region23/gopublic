@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"gopublic/internal/auth"
 	"gopublic/internal/models"
 	"log"
 
@@ -44,7 +45,16 @@ func SeedData() {
 
 func ValidateToken(tokenStr string) (*models.User, error) {
 	var token models.Token
-	result := DB.Preload("User").Where("token_string = ?", tokenStr).First(&token)
+
+	// First try new hash-based lookup
+	tokenHash := auth.HashToken(tokenStr)
+	result := DB.Preload("User").Where("token_hash = ?", tokenHash).First(&token)
+	if result.Error == nil {
+		return &token.User, nil
+	}
+
+	// Fallback to legacy plaintext lookup for backward compatibility
+	result = DB.Preload("User").Where("token_string = ?", tokenStr).First(&token)
 	if result.Error != nil {
 		return nil, result.Error
 	}

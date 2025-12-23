@@ -10,22 +10,27 @@ The system consists of three main components:
 ## 2. User Management & Authentication
 
 ### 2.1 Registration Flow
-1. **SSO Only**: Users register/login via **Google OAuth**.
+1. **SSO Only**: Users register/login via **Telegram OAuth** (Login Widget).
 2. **Account Creation**: Upon first login:
     - A unique **User ID** is generated.
-    - A unique **Auth Token** is generated (e.g., `sk_live_xYz123...`). This token effectively *is* the user identity for the CLI.
-    - **Domain Assignment**: The system automatically generates **3 random, memorable subdomains** (e.g., `misty-river`, `silent-star`, `bold-eagle`) and assigns them to the user.
+    - A cryptographically secure **Auth Token** is generated using 256 bits of entropy (e.g., `sk_live_aBcD1234...`). This token effectively *is* the user identity for the CLI.
+    - **Domain Assignment**: The system automatically generates **3 random, memorable subdomains** (e.g., `misty-river-123`, `silent-star-456`, `bold-eagle-789`) and assigns them to the user.
 3. **Dashboard display**: The user is redirected to the dashboard where they see:
-    - Their Auth Token (with a copy button).
+    - Their Auth Token (displayed once at creation, stored as hash).
     - Their assigned domains.
     - Setup instructions.
 
 ### 2.2 Token Management
-- **Token Generation**: Secure random string, generated once at registration.
-- **Persistance**:
-    - **Server-side**: Stored in database linked to User ID.
-    - **Client-side**: User runs `gopublic auth <token>`. The client saves this token to a persistent config file (e.g., `~/.config/gopublic/auth.yml` or `~/.gopublic_token`).
+- **Token Generation**: Cryptographically secure random string (256 bits), generated once at registration using `crypto/rand`.
+- **Persistence**:
+    - **Server-side**: Token hash (SHA256) stored in database. Plain token shown to user only once.
+    - **Client-side**: User runs `gopublic auth <token>`. The client saves this token to `~/.gopublic`.
 - **Authorization**: Every tunnel connection handshake includes this token. The server validates ownership of requested subdomains against this token.
+
+### 2.3 Session Management
+- **Signed Cookies**: User sessions use HMAC-signed cookies via `gorilla/securecookie`.
+- **CSRF Protection**: Double-submit cookie pattern for state-changing operations.
+- **Cookie Attributes**: `HttpOnly`, `SameSite=Lax`, `Secure` (in production).
 
 ## 3. Architecture & Protocol
 
@@ -56,16 +61,22 @@ The system consists of three main components:
 
 ### 4.2 Database
 Minimal database (SQLite) required for:
-- Users (Email, GoogleID, CreatedAt)
-- Tokens (UserID, TokenString)
+- Users (TelegramID, FirstName, LastName, Username, PhotoURL, CreatedAt)
+- Tokens (UserID, TokenString, TokenHash)
 - Domains (UserID, SubdomainName)
 
 ## 5. Client Specification
 
 ### 5.1 CLI Commands
-- `gopublic auth <token>`: Saves token to config file.
+- `gopublic auth <token>`: Saves token to `~/.gopublic` config file.
+- `gopublic start [port]`: Start single tunnel to specified port.
 - `gopublic start`: Reads `gopublic.yaml` in current dir and starts tunnels.
-- `gopublic start --all`: Start all defined tunnels.
+- `gopublic start --all`: Start all defined tunnels from `gopublic.yaml`.
+
+### 5.1.1 Automatic Reconnection
+- Tunnels automatically reconnect on connection failure.
+- Exponential backoff: 1s → 2s → 4s → ... → 60s max.
+- Graceful shutdown on SIGINT/SIGTERM.
 
 ### 5.2 Configuration (`gopublic.yaml`)
 The client supports "Projects" via YAML files. A user can map their assigned domains to different local services.
@@ -95,8 +106,11 @@ Duplicate the "Killer Feature" of ngrok.
     - **Replay**: Button to "Replay" a selected request against the local server without resending from the internet.
 
 ## 6. Security Considerations
-- **Token Secrecy**: Tokens allow anyone to host on user's domains.
+- **Token Secrecy**: Tokens allow anyone to host on user's domains. Tokens are hashed (SHA256) before storage.
 - **Domain Verification**: Server MUST enforce that a token can only bind subdomains assigned to that user.
+- **Session Security**: Signed cookies with HMAC, HttpOnly and SameSite attributes.
+- **CSRF Protection**: Double-submit cookie pattern for dashboard operations.
+- **TLS**: Control plane uses TLS in production; Let's Encrypt for automatic certificates.
 
 
 Language: Golang

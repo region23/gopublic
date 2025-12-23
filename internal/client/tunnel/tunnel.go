@@ -2,6 +2,7 @@ package tunnel
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/yamux"
 )
@@ -20,6 +22,7 @@ type Tunnel struct {
 	ServerAddr string
 	Token      string
 	LocalPort  string
+	Subdomain  string // Specific subdomain to bind (empty = bind all)
 }
 
 func NewTunnel(serverAddr, token, localPort string) *Tunnel {
@@ -108,9 +111,12 @@ func (t *Tunnel) handleSession(conn net.Conn) error {
 	// Valid MVP: `gopublic start 3000` -> Binds to the FIRST domain found for user.
 	// Let's modify Server to handle empty list = "Bind All".
 
-	// Assuming Server update (I will do this next or assume it works for empty):
-	// Send "empty" list implies "bind all available".
-	tunnelReq := protocol.TunnelRequest{RequestedDomains: []string{}}
+	// Build domain request: specific subdomain or empty (= bind all)
+	var requestedDomains []string
+	if t.Subdomain != "" {
+		requestedDomains = []string{t.Subdomain}
+	}
+	tunnelReq := protocol.TunnelRequest{RequestedDomains: requestedDomains}
 	if err := json.NewEncoder(stream).Encode(tunnelReq); err != nil {
 		return err
 	}
@@ -150,6 +156,7 @@ func (t *Tunnel) handleSession(conn net.Conn) error {
 
 func (t *Tunnel) proxyStream(remote net.Conn) {
 	defer remote.Close()
+	startTime := time.Now()
 
 	// Dial Local
 	local, err := net.Dial("tcp", "localhost:"+t.LocalPort)
@@ -169,8 +176,13 @@ func (t *Tunnel) proxyStream(remote net.Conn) {
 		return
 	}
 
-	// Record request to inspector
-	inspector.AddRequest(req.Method, req.Host, req.URL.Path, 0)
+	// Buffer request body for inspector
+	var reqBody []byte
+	if req.Body != nil {
+		reqBody, _ = io.ReadAll(req.Body)
+		req.Body.Close()
+		req.Body = io.NopCloser(bytes.NewReader(reqBody))
+	}
 
 	// Forward Request to Local
 	if err := req.Write(local); err != nil {
@@ -183,13 +195,23 @@ func (t *Tunnel) proxyStream(remote net.Conn) {
 	resp, err := http.ReadResponse(respReader, req)
 	if err != nil {
 		log.Printf("Failed to read response from local: %v", err)
+		// Record failed request to inspector
+		inspector.AddExchange(req, reqBody, nil, nil, time.Since(startTime))
 		return
 	}
 	defer resp.Body.Close()
 
-	// Update inspector with status code
-	// (Simplistic: we update the last one or by ID? Let's just update the list for now if we had IDs)
-	// For MVP, we'll just log the request at the start.
+	// Buffer response body for inspector
+	var respBody []byte
+	if resp.Body != nil {
+		respBody, _ = io.ReadAll(resp.Body)
+		resp.Body = io.NopCloser(bytes.NewReader(respBody))
+	}
+
+	duration := time.Since(startTime)
+
+	// Record complete exchange to inspector
+	inspector.AddExchange(req, reqBody, resp, respBody, duration)
 
 	// Forward Response back to Remote
 	if err := resp.Write(remote); err != nil {

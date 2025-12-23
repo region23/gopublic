@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"gopublic/internal/auth"
 	"gopublic/internal/models"
 	"gopublic/internal/storage"
 	"html/template"
@@ -12,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -28,13 +28,18 @@ type Handler struct {
 	BotToken string
 	BotName  string
 	Domain   string
+	Session  *auth.SessionManager
 }
 
 func NewHandler() *Handler {
+	domain := os.Getenv("DOMAIN_NAME")
+	isSecure := domain != "" && domain != "localhost" && domain != "127.0.0.1"
+
 	return &Handler{
 		BotToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
-		BotName:  os.Getenv("TELEGRAM_BOT_NAME"), // e.g. "MyGopublicBot"
-		Domain:   os.Getenv("DOMAIN_NAME"),
+		BotName:  os.Getenv("TELEGRAM_BOT_NAME"),
+		Domain:   domain,
+		Session:  auth.NewSessionManager(isSecure),
 	}
 }
 
@@ -63,7 +68,7 @@ func (h *Handler) RegisterRoutes(r *gin.Engine) {
 
 func (h *Handler) Login(c *gin.Context) {
 	// If already logged in, redirect to index
-	if _, err := h.getUserFromCookie(c); err == nil {
+	if _, err := h.getUserFromSession(c); err == nil {
 		c.Redirect(http.StatusTemporaryRedirect, "/")
 		return
 	}
@@ -82,7 +87,7 @@ func (h *Handler) Login(c *gin.Context) {
 }
 
 func (h *Handler) Index(c *gin.Context) {
-	user, err := h.getUserFromCookie(c)
+	user, err := h.getUserFromSession(c)
 	if err != nil {
 		c.Redirect(http.StatusTemporaryRedirect, "/login")
 		return
@@ -113,7 +118,8 @@ func (h *Handler) TelegramCallback(c *gin.Context) {
 
 	data := c.Request.URL.Query()
 	idStr := data.Get("id")
-	tgID, _ := strconv.ParseInt(idStr, 10, 64)
+	var tgID int64
+	fmt.Sscanf(idStr, "%d", &tgID)
 	firstName := data.Get("first_name")
 	lastName := data.Get("last_name")
 	username := data.Get("username")
@@ -134,16 +140,22 @@ func (h *Handler) TelegramCallback(c *gin.Context) {
 		}
 		storage.DB.Create(&user)
 
-		// Generate Token
-		// TOOD: Crypto safe random
+		// Generate cryptographically secure token
+		tokenString, err := auth.GenerateSecureToken()
+		if err != nil {
+			log.Printf("Failed to generate token: %v", err)
+			c.String(http.StatusInternalServerError, "Failed to generate token")
+			return
+		}
+
 		token := models.Token{
-			TokenString: fmt.Sprintf("sk_live_%d_%d", tgID, time.Now().Unix()),
+			TokenString: tokenString,
+			TokenHash:   auth.HashToken(tokenString),
 			UserID:      user.ID,
 		}
 		storage.DB.Create(&token)
 
 		// Generate 3 Random Domains
-		// TODO: proper random names
 		prefixes := []string{"misty", "silent", "bold", "rapid", "cool"}
 		suffixes := []string{"river", "star", "eagle", "bear", "fox"}
 		for i := 0; i < 3; i++ {
@@ -159,25 +171,28 @@ func (h *Handler) TelegramCallback(c *gin.Context) {
 		storage.DB.Save(&user)
 	}
 
-	// Set Cookie
-	// Simple Insecure Cookie for MVP (should use signed session or JWT)
-	c.SetCookie("user_id", fmt.Sprintf("%d", user.ID), 3600*24*30, "/", "", false, true)
+	// Set secure signed session cookie
+	if err := h.Session.SetSession(c.Writer, user.ID); err != nil {
+		log.Printf("Failed to set session: %v", err)
+		c.String(http.StatusInternalServerError, "Failed to create session")
+		return
+	}
 	c.Redirect(http.StatusTemporaryRedirect, "/")
 }
 
 func (h *Handler) Logout(c *gin.Context) {
-	c.SetCookie("user_id", "", -1, "/", "", false, true)
+	h.Session.ClearSession(c.Writer)
 	c.Redirect(http.StatusTemporaryRedirect, "/login")
 }
 
-func (h *Handler) getUserFromCookie(c *gin.Context) (*models.User, error) {
-	cookie, err := c.Cookie("user_id")
+func (h *Handler) getUserFromSession(c *gin.Context) (*models.User, error) {
+	session, err := h.Session.GetSession(c.Request)
 	if err != nil {
 		return nil, err
 	}
-	id, _ := strconv.Atoi(cookie)
+
 	var user models.User
-	if err := storage.DB.First(&user, id).Error; err != nil {
+	if err := storage.DB.First(&user, session.UserID).Error; err != nil {
 		return nil, err
 	}
 	return &user, nil

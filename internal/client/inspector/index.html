@@ -12,6 +12,13 @@
             --text: #f8fafc;
             --accent: #38bdf8;
             --border: #334155;
+            --success: #4ade80;
+            --warning: #fbbf24;
+            --error: #f87171;
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
@@ -23,7 +30,7 @@
         }
 
         .container {
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
         }
 
@@ -54,44 +61,60 @@
         .request-list {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
         }
 
         .request-item {
             background: var(--card);
             border: 1px solid var(--border);
-            padding: 15px;
+            padding: 12px 16px;
             border-radius: 8px;
             display: grid;
-            grid-template-columns: 80px 100px 1fr 100px;
+            grid-template-columns: 70px 90px 1fr 80px 70px;
             align-items: center;
-            transition: transform 0.1s;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
         }
 
         .request-item:hover {
             border-color: var(--accent);
+            transform: translateX(4px);
         }
 
         .method {
             font-weight: bold;
             color: var(--accent);
+            font-size: 13px;
         }
 
         .path {
-            font-family: monospace;
+            font-family: 'JetBrains Mono', monospace;
             color: #94a3b8;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            font-size: 13px;
         }
 
         .status {
-            text-align: right;
+            text-align: center;
             font-weight: bold;
+            font-size: 13px;
+            padding: 2px 8px;
+            border-radius: 4px;
         }
 
-        .status.ok {
-            color: #4ade80;
+        .status.s2xx { background: rgba(74, 222, 128, 0.2); color: var(--success); }
+        .status.s3xx { background: rgba(251, 191, 36, 0.2); color: var(--warning); }
+        .status.s4xx { background: rgba(248, 113, 113, 0.2); color: var(--error); }
+        .status.s5xx { background: rgba(248, 113, 113, 0.3); color: var(--error); }
+        .status.pending { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
+
+        .duration {
+            text-align: right;
+            font-size: 12px;
+            color: #64748b;
         }
 
         .time {
@@ -103,6 +126,168 @@
             text-align: center;
             padding: 50px;
             color: #64748b;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .modal.active {
+            display: block;
+        }
+
+        .modal-content {
+            background: var(--card);
+            max-width: 900px;
+            margin: 40px auto;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg);
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: #64748b;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text);
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section:last-child {
+            margin-bottom: 0;
+        }
+
+        .section-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .headers-table {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .headers-table td {
+            padding: 4px 0;
+            vertical-align: top;
+        }
+
+        .headers-table td:first-child {
+            color: var(--accent);
+            width: 200px;
+            padding-right: 12px;
+        }
+
+        .body-content {
+            background: var(--bg);
+            padding: 12px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 13px;
+            transition: opacity 0.15s;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .replay-result {
+            margin-top: 16px;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 6px;
+            display: none;
+        }
+
+        .replay-result.active {
+            display: block;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 16px;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: #64748b;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .tab.active {
+            background: var(--accent);
+            color: var(--bg);
+            border-color: var(--accent);
         }
     </style>
 </head>
@@ -119,23 +304,86 @@
         </div>
     </div>
 
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>
+                    <span id="modal-method" class="method"></span>
+                    <span id="modal-url" style="color: #94a3b8; font-weight: normal;"></span>
+                </h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab('request')">Request</button>
+                    <button class="tab" onclick="switchTab('response')">Response</button>
+                </div>
+
+                <div id="tab-request">
+                    <div class="section">
+                        <div class="section-title">Headers</div>
+                        <table class="headers-table" id="req-headers"></table>
+                    </div>
+                    <div class="section">
+                        <div class="section-title">Body</div>
+                        <div class="body-content" id="req-body">No body</div>
+                    </div>
+                </div>
+
+                <div id="tab-response" style="display: none;">
+                    <div class="section">
+                        <div class="section-title">Status</div>
+                        <div id="resp-status"></div>
+                    </div>
+                    <div class="section">
+                        <div class="section-title">Headers</div>
+                        <table class="headers-table" id="resp-headers"></table>
+                    </div>
+                    <div class="section">
+                        <div class="section-title">Body</div>
+                        <div class="body-content" id="resp-body">No body</div>
+                    </div>
+                </div>
+
+                <div class="section" style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border);">
+                    <button class="btn" id="replay-btn" onclick="replayRequest()">Replay Request</button>
+                    <div id="replay-result" class="replay-result"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const requestList = document.getElementById('requests');
-        let lastId = 0;
+        let currentExchange = null;
 
-        async function fetchRequests() {
+        function getStatusClass(status) {
+            if (!status) return 'pending';
+            if (status >= 200 && status < 300) return 's2xx';
+            if (status >= 300 && status < 400) return 's3xx';
+            if (status >= 400 && status < 500) return 's4xx';
+            return 's5xx';
+        }
+
+        async function fetchExchanges() {
             try {
-                const res = await fetch('/api/requests');
+                const res = await fetch('/api/exchanges');
                 const data = await res.json();
 
-                if (data.length === 0) return;
+                if (!data || data.length === 0) {
+                    requestList.innerHTML = '<div class="empty">Waiting for requests...</div>';
+                    return;
+                }
 
-                requestList.innerHTML = data.map(req => `
-                    <div class="request-item">
-                        <div class="method">${req.method}</div>
-                        <div class="time">${new Date(req.timestamp).toLocaleTimeString()}</div>
-                        <div class="path">${req.path}</div>
-                        <div class="status ok">200 OK</div>
+                requestList.innerHTML = data.map(ex => `
+                    <div class="request-item" onclick="showDetail(${ex.id})">
+                        <div class="method">${ex.request.method}</div>
+                        <div class="time">${new Date(ex.timestamp).toLocaleTimeString()}</div>
+                        <div class="path">${ex.request.url}</div>
+                        <div class="status ${getStatusClass(ex.response?.status)}">
+                            ${ex.response ? ex.response.status : 'pending'}
+                        </div>
+                        <div class="duration">${ex.duration_ms}ms</div>
                     </div>
                 `).join('');
             } catch (e) {
@@ -143,8 +391,108 @@
             }
         }
 
-        setInterval(fetchRequests, 1000);
-        fetchRequests();
+        async function showDetail(id) {
+            try {
+                const res = await fetch(`/api/exchanges/${id}`);
+                const exchange = await res.json();
+                currentExchange = exchange;
+
+                document.getElementById('modal-method').textContent = exchange.request.method;
+                document.getElementById('modal-url').textContent = exchange.request.url;
+
+                // Request headers
+                const reqHeaders = document.getElementById('req-headers');
+                reqHeaders.innerHTML = Object.entries(exchange.request.headers || {})
+                    .map(([k, v]) => `<tr><td>${k}</td><td>${v.join(', ')}</td></tr>`)
+                    .join('') || '<tr><td colspan="2">No headers</td></tr>';
+
+                // Request body
+                document.getElementById('req-body').textContent =
+                    exchange.request.body || 'No body';
+
+                // Response
+                if (exchange.response) {
+                    document.getElementById('resp-status').innerHTML =
+                        `<span class="status ${getStatusClass(exchange.response.status)}">${exchange.response.status}</span>`;
+
+                    const respHeaders = document.getElementById('resp-headers');
+                    respHeaders.innerHTML = Object.entries(exchange.response.headers || {})
+                        .map(([k, v]) => `<tr><td>${k}</td><td>${v.join(', ')}</td></tr>`)
+                        .join('') || '<tr><td colspan="2">No headers</td></tr>';
+
+                    document.getElementById('resp-body').textContent =
+                        exchange.response.body || 'No body';
+                } else {
+                    document.getElementById('resp-status').innerHTML = '<span class="status pending">No response</span>';
+                    document.getElementById('resp-headers').innerHTML = '';
+                    document.getElementById('resp-body').textContent = 'No response received';
+                }
+
+                // Reset replay result
+                document.getElementById('replay-result').classList.remove('active');
+                document.getElementById('replay-result').innerHTML = '';
+
+                // Show modal
+                document.getElementById('modal').classList.add('active');
+                switchTab('request');
+            } catch (e) {
+                console.error("Failed to load detail", e);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+            currentExchange = null;
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+
+            document.getElementById('tab-request').style.display = tab === 'request' ? 'block' : 'none';
+            document.getElementById('tab-response').style.display = tab === 'response' ? 'block' : 'none';
+        }
+
+        async function replayRequest() {
+            if (!currentExchange) return;
+
+            const btn = document.getElementById('replay-btn');
+            const resultDiv = document.getElementById('replay-result');
+
+            btn.disabled = true;
+            btn.textContent = 'Replaying...';
+            resultDiv.classList.remove('active');
+
+            try {
+                const res = await fetch(`/api/replay/${currentExchange.id}`, { method: 'POST' });
+                const data = await res.json();
+
+                resultDiv.innerHTML = `
+                    <div class="section-title">Replay Result</div>
+                    <div><strong>Status:</strong> <span class="status ${getStatusClass(data.status)}">${data.status}</span></div>
+                    <div style="margin-top: 8px;"><strong>Body:</strong></div>
+                    <div class="body-content" style="margin-top: 4px;">${data.body || 'No body'}</div>
+                `;
+                resultDiv.classList.add('active');
+            } catch (e) {
+                resultDiv.innerHTML = `<div style="color: var(--error);">Replay failed: ${e.message}</div>`;
+                resultDiv.classList.add('active');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Replay Request';
+            }
+        }
+
+        // Close modal on escape or click outside
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') closeModal();
+        });
+        document.getElementById('modal').addEventListener('click', e => {
+            if (e.target.id === 'modal') closeModal();
+        });
+
+        setInterval(fetchExchanges, 1000);
+        fetchExchanges();
     </script>
 </body>
 

@@ -1,12 +1,15 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"gopublic/internal/client/config"
 	"gopublic/internal/client/inspector"
 	"gopublic/internal/client/tunnel"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 )
@@ -57,10 +60,8 @@ var authCmd = &cobra.Command{
 var startCmd = &cobra.Command{
 	Use:   "start [port]",
 	Short: "Start a public tunnel to a local port",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		port := args[0]
-
 		cfg, err := config.LoadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
@@ -70,16 +71,71 @@ var startCmd = &cobra.Command{
 			log.Fatal("No token found. Run 'gopublic auth <token>' first.")
 		}
 
-		fmt.Printf("Starting tunnel to localhost:%s on server %s\n", port, ServerAddr)
+		// Setup context for graceful shutdown
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		// Handle shutdown signals
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+		go func() {
+			<-sigChan
+			fmt.Println("\nShutdown signal received, closing tunnel...")
+			cancel()
+		}()
 
 		// Start Inspector
 		inspector.Start("4040")
-		fmt.Printf("Inspector UI running on http://localhost:4040\n")
 
-		// Start Tunnel
-		t := tunnel.NewTunnel(ServerAddr, cfg.Token, port)
-		if err := t.Start(); err != nil {
-			log.Fatalf("Tunnel error: %v", err)
+		// Check for project config (gopublic.yaml)
+		allFlag, _ := cmd.Flags().GetBool("all")
+		projectCfg, projectErr := config.LoadProjectConfig("")
+
+		if projectErr == nil && (allFlag || len(args) == 0) {
+			// Multi-tunnel mode from gopublic.yaml
+			fmt.Println("Loading tunnels from gopublic.yaml...")
+			fmt.Println("Inspector UI: http://localhost:4040")
+
+			manager := tunnel.NewTunnelManager(ServerAddr, cfg.Token)
+
+			// Set first tunnel port for replay (use first tunnel's port)
+			for _, t := range projectCfg.Tunnels {
+				inspector.SetLocalPort(t.Addr)
+				break
+			}
+
+			for name, t := range projectCfg.Tunnels {
+				manager.AddTunnel(name, t.Addr, t.Subdomain)
+			}
+
+			if err := manager.StartAll(ctx); err != nil {
+				if err != context.Canceled {
+					log.Fatalf("Tunnel error: %v", err)
+				}
+			}
+		} else if len(args) == 1 {
+			// Single tunnel mode (legacy)
+			port := args[0]
+			fmt.Printf("Starting tunnel to localhost:%s on server %s\n", port, ServerAddr)
+			fmt.Println("Inspector UI: http://localhost:4040")
+
+			// Configure replay with local port
+			inspector.SetLocalPort(port)
+
+			t := tunnel.NewTunnel(ServerAddr, cfg.Token, port)
+			if err := t.StartWithReconnect(ctx, nil); err != nil {
+				if err != context.Canceled {
+					log.Fatalf("Tunnel error: %v", err)
+				}
+			}
+		} else {
+			log.Fatal("Either provide a port or create gopublic.yaml config file")
 		}
+
+		fmt.Println("Tunnel closed")
 	},
+}
+
+func init() {
+	startCmd.Flags().BoolP("all", "a", false, "Start all tunnels from gopublic.yaml")
 }

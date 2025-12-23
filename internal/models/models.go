@@ -16,7 +16,8 @@ type User struct {
 
 type Token struct {
 	gorm.Model
-	TokenString string `gorm:"uniqueIndex"`
+	TokenString string `gorm:"uniqueIndex"` // Deprecated: for backward compatibility
+	TokenHash   string `gorm:"uniqueIndex"` // SHA256 hash of the token
 	UserID      uint
 	User        User
 }
