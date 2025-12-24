@@ -240,8 +240,14 @@ func (s *Server) handleConnection(conn net.Conn) {
 	s.monitorSession(session, user.ID, boundDomains)
 }
 
+// Handshake timeout for server-side operations
+const handshakeTimeout = 30 * time.Second
+
 // setupYamuxSession creates a yamux session and accepts the handshake stream.
 func (s *Server) setupYamuxSession(conn net.Conn) (*yamux.Session, net.Conn, error) {
+	// Set initial deadline for yamux setup
+	conn.SetDeadline(time.Now().Add(handshakeTimeout))
+
 	session, err := yamux.Server(conn, nil)
 	if err != nil {
 		conn.Close()
@@ -256,11 +262,18 @@ func (s *Server) setupYamuxSession(conn net.Conn) (*yamux.Session, net.Conn, err
 	}
 	log.Printf("Handshake stream accepted from %s", conn.RemoteAddr())
 
+	// Clear deadline on the underlying connection after yamux is established
+	conn.SetDeadline(time.Time{})
+
 	return session, stream, nil
 }
 
 // authenticate validates the client's token and returns the user and force flag.
 func (s *Server) authenticate(stream net.Conn, remoteAddr string) (*models.User, bool, error) {
+	// Set read deadline for auth request
+	stream.SetReadDeadline(time.Now().Add(handshakeTimeout))
+	defer stream.SetReadDeadline(time.Time{}) // Clear deadline after auth
+
 	decoder := json.NewDecoder(stream)
 
 	var authReq protocol.AuthRequest
@@ -281,6 +294,9 @@ func (s *Server) authenticate(stream net.Conn, remoteAddr string) (*models.User,
 
 // processTunnelRequest handles the tunnel request and binds domains.
 func (s *Server) processTunnelRequest(stream net.Conn, session *yamux.Session, user *models.User, remoteAddr string) ([]string, error) {
+	// Set read deadline for tunnel request
+	stream.SetReadDeadline(time.Now().Add(handshakeTimeout))
+
 	decoder := json.NewDecoder(stream)
 
 	var tunnelReq protocol.TunnelRequest
@@ -288,6 +304,9 @@ func (s *Server) processTunnelRequest(stream net.Conn, session *yamux.Session, u
 		return nil, err
 	}
 	log.Printf("Tunnel request received from %s for %d domains", remoteAddr, len(tunnelReq.RequestedDomains))
+
+	// Clear read deadline before database operations
+	stream.SetReadDeadline(time.Time{})
 
 	// If no domains requested, get all user domains
 	requestedDomains := tunnelReq.RequestedDomains
