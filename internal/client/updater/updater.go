@@ -338,6 +338,13 @@ func copyFile(src, dst string) error {
 
 	// Write to destination
 	if err := os.WriteFile(dst, data, srcInfo.Mode()); err != nil {
+		// Check if this is a permission error and provide helpful message
+		if os.IsPermission(err) {
+			return fmt.Errorf("permission denied writing to %s. "+
+				"The binary is installed in a system directory. "+
+				"Either run with sudo or reinstall to ~/.local/bin/ using: "+
+				"curl -sSL https://gopublic.su/install.sh | sh", dst)
+		}
 		return fmt.Errorf("failed to write destination: %w", err)
 	}
 

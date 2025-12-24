@@ -241,7 +241,8 @@ set -e
 
 REPO="` + i.GitHubRepo + `"
 BINARY_NAME="gopublic"
-INSTALL_DIR="/usr/local/bin"
+# Install to ~/.local/bin by default (no sudo required, auto-update friendly)
+INSTALL_DIR="${GOPUBLIC_INSTALL_DIR:-$HOME/.local/bin}"
 
 # Detect OS
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -262,7 +263,7 @@ esac
 BINARY="${BINARY_NAME}-${OS}-${ARCH}"
 URL="https://github.com/${REPO}/releases/latest/download/${BINARY}"
 
-# Use temp directory to avoid permission issues
+# Use temp directory
 TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT
 
@@ -270,21 +271,43 @@ echo "Downloading ${BINARY}..."
 curl -fsSL "$URL" -o "$TMPDIR/$BINARY_NAME"
 chmod +x "$TMPDIR/$BINARY_NAME"
 
-# Try to install to /usr/local/bin
-if [ -w "$INSTALL_DIR" ]; then
-  mv "$TMPDIR/$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
-  echo ""
-  echo "Installed: $INSTALL_DIR/$BINARY_NAME"
-  echo "Run 'gopublic --help' to get started."
-else
-  # Copy to current directory if no write access to install dir
-  cp "$TMPDIR/$BINARY_NAME" "./$BINARY_NAME"
-  echo ""
-  echo "Downloaded: ./${BINARY_NAME}"
-  echo ""
-  echo "To install globally, run:"
-  echo "  sudo mv ${BINARY_NAME} ${INSTALL_DIR}/"
-fi
+# Create install directory if needed
+mkdir -p "$INSTALL_DIR"
+
+# Install
+mv "$TMPDIR/$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
+echo ""
+echo "Installed: $INSTALL_DIR/$BINARY_NAME"
+
+# Check if install dir is in PATH
+case ":$PATH:" in
+  *":$INSTALL_DIR:"*)
+    echo ""
+    echo "Run 'gopublic --help' to get started."
+    ;;
+  *)
+    echo ""
+    echo "NOTE: $INSTALL_DIR is not in your PATH."
+    echo ""
+    SHELL_NAME=$(basename "$SHELL")
+    case "$SHELL_NAME" in
+      zsh)
+        echo "Add it by running:"
+        echo "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc && source ~/.zshrc"
+        ;;
+      bash)
+        echo "Add it by running:"
+        echo "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc"
+        ;;
+      *)
+        echo "Add it to your shell config:"
+        echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+        ;;
+    esac
+    echo ""
+    echo "Or run directly: $INSTALL_DIR/$BINARY_NAME --help"
+    ;;
+esac
 `
 	c.Header("Content-Type", "text/plain; charset=utf-8")
 	c.String(http.StatusOK, script)
