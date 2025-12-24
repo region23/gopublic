@@ -23,6 +23,9 @@ go test -v -run TestName ./path/to/package
 
 # Build all packages (verify compilation)
 go build ./...
+
+# Clean build artifacts
+make clean
 ```
 
 ## Running Locally
@@ -82,6 +85,11 @@ open http://localhost:4040
 
 **Reconnection:** Exponential backoff 1s → 60s max, context-aware shutdown.
 
+**Security:**
+- Session cookies: HMAC-SHA256 signing + AES encryption (gorilla/securecookie)
+- Tokens: SHA256 hashed in DB, plaintext shown only once at creation
+- CSRF: Double-submit cookie pattern for POST endpoints
+
 ## Environment Variables
 
 | Variable | Purpose |
@@ -110,3 +118,15 @@ Tokens stored as SHA256 hash, shown to user only once at creation.
 | `:8080` | HTTP Ingress (dev mode) |
 | `:4443` | Control Plane (TCP/TLS) |
 | `:4040` | Inspector UI (client-side) |
+
+## Docker Deployment
+
+```bash
+# Production deployment
+docker-compose up -d --build
+
+# View logs
+docker-compose logs -f
+```
+
+Requires `.env` with `DOMAIN_NAME`, `EMAIL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_NAME`.
