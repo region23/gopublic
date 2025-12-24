@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - GoPublic</title>
+    <title>Панель управления — GoPublic</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -401,7 +401,7 @@
                     <div class="user-avatar">{{slice .User.FirstName 0 1}}</div>
                     <span>{{.User.FirstName}}</span>
                 </div>
-                <a href="/logout" class="logout-link">Sign Out</a>
+                <a href="/logout" class="logout-link">Выйти</a>
             </div>
         </div>
     </header>
@@ -409,22 +409,22 @@
     <main class="main">
         <section class="card">
             <div class="card-header">
-                <div class="card-label">Authentication Token</div>
+                <div class="card-label">Токен авторизации</div>
             </div>
             <div class="card-body">
                 <div class="token-display">
                     <div class="token-value" id="token">{{.Token}}</div>
-                    <button class="copy-btn" id="copy-btn" onclick="copyToken()">Copy</button>
+                    <button class="copy-btn" id="copy-btn" onclick="copyToken()">Копировать</button>
                 </div>
                 <p class="token-instructions">
-                    Configure your client: <code>./gopublic auth YOUR_TOKEN</code>
+                    Настройте клиент: <code>./gopublic auth ВАШ_ТОКЕН</code>
                 </p>
             </div>
         </section>
 
         <section class="card">
             <div class="card-header">
-                <div class="card-label">Assigned Domains</div>
+                <div class="card-label">Назначенные домены</div>
             </div>
             <div class="card-body">
                 {{if .Domains}}
@@ -433,19 +433,19 @@
                     <li class="domain-item">
                         <span class="domain-number">{{$i}}</span>
                         <span class="domain-name">{{$d.Name}}.{{$.RootDomain}}</span>
-                        <a href="https://{{$d.Name}}.{{$.RootDomain}}" class="domain-link" target="_blank">Open</a>
+                        <a href="https://{{$d.Name}}.{{$.RootDomain}}" class="domain-link" target="_blank">Открыть</a>
                     </li>
                     {{end}}
                 </ul>
                 {{else}}
-                <div class="empty-state">No domains assigned yet</div>
+                <div class="empty-state">Домены пока не назначены</div>
                 {{end}}
             </div>
         </section>
     </main>
 
     <footer class="footer">
-        <span class="footer-text">GoPublic Tunnel Service</span>
+        <span class="footer-text">GoPublic Tunnel Protocol</span>
     </footer>
 
     <script>
@@ -454,11 +454,11 @@
             const btn = document.getElementById('copy-btn');
 
             navigator.clipboard.writeText(token).then(() => {
-                btn.textContent = 'Copied';
+                btn.textContent = 'Скопировано';
                 btn.classList.add('copied');
 
                 setTimeout(() => {
-                    btn.textContent = 'Copy';
+                    btn.textContent = 'Копировать';
                     btn.classList.remove('copied');
                 }, 2000);
             }).catch(() => {
@@ -470,11 +470,11 @@
                 document.execCommand('copy');
                 document.body.removeChild(textarea);
 
-                btn.textContent = 'Copied';
+                btn.textContent = 'Скопировано';
                 btn.classList.add('copied');
 
                 setTimeout(() => {
-                    btn.textContent = 'Copy';
+                    btn.textContent = 'Копировать';
                     btn.classList.remove('copied');
                 }, 2000);
             });

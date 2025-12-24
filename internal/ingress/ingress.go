@@ -215,6 +215,7 @@ func (i *Ingress) serveLandingPage(c *gin.Context) {
 	}
 	c.HTML(http.StatusOK, "landing.html", gin.H{
 		"ProjectName":  i.ProjectName,
+		"RootDomain":   i.RootDomain,
 		"DashboardURL": scheme + "://app." + i.RootDomain,
 	})
 }

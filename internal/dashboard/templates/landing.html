@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.ProjectName}} — Secure Tunnel Services</title>
+    <title>{{.ProjectName}} — Туннели для разработчиков</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -43,7 +43,7 @@
             overflow-x: hidden;
         }
 
-        /* Decorative grid pattern - Lumon floor aesthetic */
+        /* Decorative grid pattern */
         .grid-overlay {
             position: fixed;
             top: 0;
@@ -65,14 +65,13 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            padding: 3rem 2rem;
+            padding: 4rem 2rem;
             position: relative;
             z-index: 1;
         }
 
         .landing-container {
-            max-width: 560px;
+            max-width: 720px;
             width: 100%;
             display: flex;
             flex-direction: column;
@@ -155,11 +154,12 @@
         }
 
         .brand-tagline {
-            font-size: 0.75rem;
-            font-weight: 500;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 400;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            max-width: 400px;
+            line-height: 1.6;
         }
 
         /* Hero Card */
@@ -169,10 +169,9 @@
             border: 1px solid var(--border-light);
             border-radius: 8px;
             box-shadow: var(--shadow-card);
-            padding: 3rem 2.5rem;
+            padding: 2.5rem;
             position: relative;
             overflow: hidden;
-            text-align: center;
         }
 
         .hero-card::before {
@@ -186,15 +185,19 @@
             border-radius: 0 0 4px 0;
         }
 
+        .hero-title {
+            font-size: 1.125rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+        }
+
         .hero-description {
-            font-size: 1rem;
+            font-size: 0.9375rem;
             font-weight: 400;
-            line-height: 1.7;
+            line-height: 1.8;
             color: var(--text-secondary);
-            margin-bottom: 2.5rem;
-            max-width: 400px;
-            margin-left: auto;
-            margin-right: auto;
+            margin-bottom: 2rem;
         }
 
         .hero-description strong {
@@ -202,13 +205,71 @@
             font-weight: 500;
         }
 
-        /* Decorative divider */
+        /* Use cases */
+        .use-cases {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .use-case {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .use-case-icon {
+            width: 6px;
+            height: 6px;
+            background: var(--lumon-mint);
+            border-radius: 50%;
+            margin-top: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .use-case-text {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Terminal example */
+        .terminal {
+            background: var(--text-primary);
+            border-radius: 6px;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 2rem;
+            overflow-x: auto;
+        }
+
+        .terminal-line {
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            color: #e0e0e0;
+            line-height: 1.8;
+            white-space: nowrap;
+        }
+
+        .terminal-prompt {
+            color: var(--lumon-mint);
+        }
+
+        .terminal-comment {
+            color: var(--text-muted);
+        }
+
+        .terminal-url {
+            color: #90cdf4;
+        }
+
+        /* Divider */
         .divider {
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 1rem;
-            margin-bottom: 2.5rem;
+            margin: 0.5rem 0;
         }
 
         .divider-line {
@@ -224,7 +285,20 @@
             border-radius: 50%;
         }
 
-        /* CTA Button */
+        /* CTA Section */
+        .cta-section {
+            text-align: center;
+        }
+
+        .cta-hint {
+            font-size: 0.75rem;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+
         .cta-button {
             display: inline-flex;
             align-items: center;
@@ -232,10 +306,9 @@
             background: var(--lumon-teal);
             color: white;
             font-family: var(--font-primary);
-            font-size: 0.8125rem;
+            font-size: 0.875rem;
             font-weight: 500;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
+            letter-spacing: 0.05em;
             text-decoration: none;
             padding: 1rem 2rem;
             border-radius: 4px;
@@ -260,6 +333,49 @@
 
         .cta-button:hover .cta-arrow {
             transform: translateX(4px);
+        }
+
+        /* Features */
+        .features {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+        }
+
+        .feature {
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+            padding: 1.5rem;
+            position: relative;
+        }
+
+        .feature::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 40px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--lumon-teal), var(--lumon-teal-light));
+            border-radius: 0 0 3px 0;
+        }
+
+        .feature-title {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--lumon-teal);
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-text {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
         }
 
         /* Footer */
@@ -294,28 +410,35 @@
         /* Responsive */
         @media (max-width: 640px) {
             main {
-                padding: 2rem 1.5rem;
+                padding: 2.5rem 1.5rem;
             }
 
             .landing-container {
-                gap: 2.5rem;
+                gap: 2rem;
             }
 
             .brand-name {
                 font-size: 1.75rem;
-                letter-spacing: 0.2em;
+                letter-spacing: 0.15em;
             }
 
             .hero-card {
-                padding: 2rem 1.5rem;
+                padding: 1.75rem;
             }
 
-            .hero-description {
-                font-size: 0.9375rem;
+            .use-cases {
+                grid-template-columns: 1fr;
             }
 
-            .cta-button {
-                padding: 0.875rem 1.5rem;
+            .features {
+                grid-template-columns: 1fr;
+            }
+
+            .terminal {
+                padding: 1rem;
+            }
+
+            .terminal-line {
                 font-size: 0.75rem;
             }
         }
@@ -348,24 +471,72 @@
                     <div class="brand-icon-ring"></div>
                 </div>
                 <h1 class="brand-name">{{.ProjectName}}</h1>
-                <p class="brand-tagline">Secure Tunnel Services</p>
+                <p class="brand-tagline">Откройте доступ к локальным сервисам через интернет за несколько секунд</p>
             </div>
 
             <div class="hero-card">
+                <h2 class="hero-title">Зачем это нужно?</h2>
+                <p class="hero-description">
+                    Когда вы разрабатываете веб-приложение на своём компьютере, оно доступно только локально.
+                    <strong>{{.ProjectName}}</strong> создаёт защищённый туннель, который позволяет получить доступ
+                    к вашему приложению из любой точки мира по публичному URL.
+                </p>
+
+                <div class="use-cases">
+                    <div class="use-case">
+                        <div class="use-case-icon"></div>
+                        <span class="use-case-text">Показать клиенту работу до деплоя на сервер</span>
+                    </div>
+                    <div class="use-case">
+                        <div class="use-case-icon"></div>
+                        <span class="use-case-text">Тестировать вебхуки от платёжных систем и ботов</span>
+                    </div>
+                    <div class="use-case">
+                        <div class="use-case-icon"></div>
+                        <span class="use-case-text">Отладка мобильных приложений на реальных устройствах</span>
+                    </div>
+                    <div class="use-case">
+                        <div class="use-case-icon"></div>
+                        <span class="use-case-text">Совместная разработка с удалённой командой</span>
+                    </div>
+                </div>
+
+                <div class="terminal">
+                    <div class="terminal-line"><span class="terminal-comment"># Запустите ваше приложение локально на порту 3000</span></div>
+                    <div class="terminal-line"><span class="terminal-prompt">$</span> gopublic start 3000</div>
+                    <div class="terminal-line"></div>
+                    <div class="terminal-line"><span class="terminal-comment"># Готово! Ваш публичный адрес:</span></div>
+                    <div class="terminal-line"><span class="terminal-url">https://misty-river.{{.RootDomain}}</span></div>
+                </div>
+
                 <div class="divider">
                     <span class="divider-line"></span>
                     <span class="divider-dot"></span>
                     <span class="divider-line"></span>
                 </div>
 
-                <p class="hero-description">
-                    Expose your <strong>local services</strong> to the public internet through encrypted tunnels. Fast setup, reliable connections, complete control.
-                </p>
+                <div class="cta-section">
+                    <p class="cta-hint">Авторизуйтесь чтобы получить токен</p>
+                    <a href="{{.DashboardURL}}" class="cta-button">
+                        Открыть панель управления
+                        <span class="cta-arrow">→</span>
+                    </a>
+                </div>
+            </div>
 
-                <a href="{{.DashboardURL}}" class="cta-button">
-                    Open Dashboard
-                    <span class="cta-arrow">→</span>
-                </a>
+            <div class="features">
+                <div class="feature">
+                    <div class="feature-title">Шифрование</div>
+                    <p class="feature-text">HTTPS из коробки с автоматическими сертификатами</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-title">Инспектор</div>
+                    <p class="feature-text">Просмотр и повтор HTTP-запросов в реальном времени</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-title">Реконнект</div>
+                    <p class="feature-text">Автоматическое восстановление соединения при сбоях</p>
+                </div>
             </div>
         </div>
     </main>
