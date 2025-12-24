@@ -28,6 +28,7 @@ type Ingress struct {
 	RootDomain  string // Root domain for routing
 	ProjectName string // Project name for branding
 	IsSecure    bool   // Whether running in secure mode
+	GitHubRepo  string // GitHub repo for client downloads (e.g., "username/gopublic")
 }
 
 // NewIngressWithConfig creates a new ingress with the given configuration.
@@ -39,6 +40,7 @@ func NewIngressWithConfig(cfg *config.Config, registry *server.TunnelRegistry, d
 		RootDomain:  cfg.Domain,
 		ProjectName: cfg.ProjectName,
 		IsSecure:    cfg.IsSecure(),
+		GitHubRepo:  cfg.GitHubRepo,
 	}
 }
 
@@ -207,17 +209,90 @@ func (i *Ingress) isDashboardHost(host string) bool {
 	return host == "app."+i.RootDomain
 }
 
-// serveLandingPage renders the public landing page.
+// serveLandingPage renders the public landing page or install scripts.
 func (i *Ingress) serveLandingPage(c *gin.Context) {
-	scheme := "http"
-	if i.IsSecure {
-		scheme = "https"
+	switch c.Request.URL.Path {
+	case "/install.sh":
+		i.serveInstallSh(c)
+	case "/install.ps1":
+		i.serveInstallPs1(c)
+	default:
+		scheme := "http"
+		if i.IsSecure {
+			scheme = "https"
+		}
+		c.HTML(http.StatusOK, "landing.html", gin.H{
+			"ProjectName":  i.ProjectName,
+			"RootDomain":   i.RootDomain,
+			"DashboardURL": scheme + "://app." + i.RootDomain,
+		})
 	}
-	c.HTML(http.StatusOK, "landing.html", gin.H{
-		"ProjectName":  i.ProjectName,
-		"RootDomain":   i.RootDomain,
-		"DashboardURL": scheme + "://app." + i.RootDomain,
-	})
+}
+
+// serveInstallSh serves the bash install script for macOS/Linux.
+func (i *Ingress) serveInstallSh(c *gin.Context) {
+	if i.GitHubRepo == "" {
+		c.String(http.StatusNotFound, "Install script not available: GITHUB_REPO not configured")
+		return
+	}
+
+	script := `#!/bin/sh
+set -e
+
+REPO="` + i.GitHubRepo + `"
+BINARY_NAME="gopublic"
+
+# Detect OS
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+case "$OS" in
+  linux) OS="linux" ;;
+  darwin) OS="macos" ;;
+  *) echo "Unsupported OS: $OS"; exit 1 ;;
+esac
+
+# Detect architecture
+ARCH=$(uname -m)
+case "$ARCH" in
+  x86_64|amd64) ARCH="amd64" ;;
+  arm64|aarch64) ARCH="arm64" ;;
+  *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+esac
+
+BINARY="${BINARY_NAME}-${OS}-${ARCH}"
+URL="https://github.com/${REPO}/releases/latest/download/${BINARY}"
+
+echo "Downloading ${BINARY}..."
+curl -fsSL "$URL" -o "$BINARY_NAME"
+chmod +x "$BINARY_NAME"
+
+echo ""
+echo "Downloaded: ./${BINARY_NAME}"
+echo ""
+echo "To install globally, run:"
+echo "  sudo mv ${BINARY_NAME} /usr/local/bin/"
+`
+	c.Header("Content-Type", "text/plain; charset=utf-8")
+	c.String(http.StatusOK, script)
+}
+
+// serveInstallPs1 serves the PowerShell install script for Windows.
+func (i *Ingress) serveInstallPs1(c *gin.Context) {
+	if i.GitHubRepo == "" {
+		c.String(http.StatusNotFound, "Install script not available: GITHUB_REPO not configured")
+		return
+	}
+
+	script := `$ErrorActionPreference = "Stop"
+$repo = "` + i.GitHubRepo + `"
+$url = "https://github.com/$repo/releases/latest/download/gopublic-windows-amd64.exe"
+
+Write-Host "Downloading gopublic..."
+Invoke-WebRequest -Uri $url -OutFile "gopublic.exe"
+Write-Host ""
+Write-Host "Done! Downloaded: .\gopublic.exe"
+`
+	c.Header("Content-Type", "text/plain; charset=utf-8")
+	c.String(http.StatusOK, script)
 }
 
 // serveDashboard routes requests to dashboard handlers.
