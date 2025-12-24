@@ -56,12 +56,14 @@ func (t *Tunnel) StartWithReconnect(ctx context.Context, cfg *ReconnectConfig) e
 
 		// Check max attempts
 		if cfg.MaxAttempts > 0 && attempt > cfg.MaxAttempts {
+			t.publishStatus("error", fmt.Sprintf("Max reconnection attempts (%d) exceeded", cfg.MaxAttempts))
 			return fmt.Errorf("max reconnection attempts (%d) exceeded", cfg.MaxAttempts)
 		}
 
 		// Wait before reconnecting (except first attempt)
 		if attempt > 1 {
 			log.Printf("Reconnecting in %v (attempt %d)...", delay, attempt)
+			t.publishStatus("reconnecting", fmt.Sprintf("Reconnecting in %v (attempt %d)...", delay, attempt))
 
 			select {
 			case <-time.After(delay):
@@ -79,10 +81,12 @@ func (t *Tunnel) StartWithReconnect(ctx context.Context, cfg *ReconnectConfig) e
 			// Don't retry on "already connected" error - this is not transient
 			if IsAlreadyConnectedError(err) {
 				log.Printf("Session conflict: %v", err)
+				t.publishStatus("error", fmt.Sprintf("Session conflict: %v", err))
 				return err
 			}
 
 			log.Printf("Connection failed: %v", err)
+			t.publishStatus("connection_failed", fmt.Sprintf("Connection failed: %v (retry in %v)", err, delay))
 
 			// Exponential backoff
 			delay = time.Duration(float64(delay) * cfg.Multiplier)
@@ -95,6 +99,7 @@ func (t *Tunnel) StartWithReconnect(ctx context.Context, cfg *ReconnectConfig) e
 		// Connection was successful but ended (session closed)
 		// This happens when handleSession returns normally (e.g., server closed connection)
 		log.Println("Connection ended, will reconnect...")
+		t.publishStatus("disconnected", "Connection ended, reconnecting...")
 
 		// Reset backoff on successful connection
 		attempt = 0

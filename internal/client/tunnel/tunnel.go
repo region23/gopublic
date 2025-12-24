@@ -99,6 +99,14 @@ func (t *Tunnel) publishEvent(eventType events.EventType, data interface{}) {
 	}
 }
 
+// publishStatus publishes a connection status event.
+func (t *Tunnel) publishStatus(stage, message string) {
+	t.publishEvent(events.EventConnectionStatus, events.ConnectionStatusData{
+		Stage:   stage,
+		Message: message,
+	})
+}
+
 // trackConn adds a connection to the active set.
 func (t *Tunnel) trackConn(conn net.Conn) {
 	t.mu.Lock()
@@ -130,9 +138,11 @@ func (t *Tunnel) Start() error {
 	connectStart := time.Now()
 
 	if isLocal {
+		t.publishStatus("dialing", fmt.Sprintf("Connecting to %s (plain TCP)...", t.ServerAddr))
 		log.Printf("Local server detected on %s, using plain TCP", t.ServerAddr)
 		conn, err := net.Dial("tcp", t.ServerAddr)
 		if err != nil {
+			t.publishStatus("error", fmt.Sprintf("Connection failed: %v", err))
 			t.publishEvent(events.EventError, events.ErrorData{Error: err, Context: "connect"})
 			return fmt.Errorf("failed to connect to local server: %v", err)
 		}
@@ -151,11 +161,14 @@ func (t *Tunnel) Start() error {
 		tlsConfig.InsecureSkipVerify = true
 	}
 
+	t.publishStatus("dialing", fmt.Sprintf("Connecting to %s (TLS)...", t.ServerAddr))
 	conn, err := tls.Dial("tcp", t.ServerAddr, tlsConfig)
 	if err != nil {
+		t.publishStatus("tls_fallback", fmt.Sprintf("TLS failed: %v, trying plain TCP...", err))
 		log.Printf("TLS connection failed, trying plain TCP: %v", err)
 		connPlain, errPlain := net.Dial("tcp", t.ServerAddr)
 		if errPlain != nil {
+			t.publishStatus("error", fmt.Sprintf("Connection failed: %v", errPlain))
 			t.publishEvent(events.EventError, events.ErrorData{Error: errPlain, Context: "connect"})
 			return fmt.Errorf("failed to connect: %v", errPlain)
 		}
@@ -177,8 +190,10 @@ func (t *Tunnel) handleSession(conn net.Conn, connectStart time.Time) error {
 	t.mu.Unlock()
 
 	// Start Yamux Client
+	t.publishStatus("yamux_init", "Initializing multiplexed connection...")
 	session, err := yamux.Client(conn, nil)
 	if err != nil {
+		t.publishStatus("error", fmt.Sprintf("Failed to init yamux: %v", err))
 		return fmt.Errorf("failed to start yamux: %v", err)
 	}
 
@@ -195,38 +210,48 @@ func (t *Tunnel) handleSession(conn net.Conn, connectStart time.Time) error {
 	}()
 
 	// Handshake: Open stream for control
+	t.publishStatus("handshake", "Opening control stream...")
 	stream, err := session.Open()
 	if err != nil {
+		t.publishStatus("error", fmt.Sprintf("Failed to open stream: %v", err))
 		return fmt.Errorf("failed to open handshake stream: %v", err)
 	}
 
 	// Auth
+	t.publishStatus("authenticating", "Authenticating with server...")
 	authReq := protocol.AuthRequest{Token: t.Token, Force: t.Force}
 	if err := json.NewEncoder(stream).Encode(authReq); err != nil {
+		t.publishStatus("error", fmt.Sprintf("Failed to send auth: %v", err))
 		return err
 	}
 
 	// Build domain request: specific subdomain or empty (= bind all)
+	t.publishStatus("requesting_tunnel", "Requesting tunnel...")
 	var requestedDomains []string
 	if t.Subdomain != "" {
 		requestedDomains = []string{t.Subdomain}
 	}
 	tunnelReq := protocol.TunnelRequest{RequestedDomains: requestedDomains}
 	if err := json.NewEncoder(stream).Encode(tunnelReq); err != nil {
+		t.publishStatus("error", fmt.Sprintf("Failed to request tunnel: %v", err))
 		return err
 	}
 
 	// Read Response
+	t.publishStatus("waiting_response", "Waiting for server response...")
 	var resp protocol.InitResponse
 	if err := json.NewDecoder(stream).Decode(&resp); err != nil {
+		t.publishStatus("error", fmt.Sprintf("Failed to read response: %v", err))
 		return fmt.Errorf("handshake read failed: %v", err)
 	}
 
 	if !resp.Success {
 		// Check for specific error code
 		if resp.ErrorCode == protocol.ErrorCodeAlreadyConnected {
+			t.publishStatus("error", fmt.Sprintf("Already connected: %s", resp.Error))
 			return &AlreadyConnectedError{Message: resp.Error}
 		}
+		t.publishStatus("error", fmt.Sprintf("Server error: %s", resp.Error))
 		return fmt.Errorf("server error: %s", resp.Error)
 	}
 

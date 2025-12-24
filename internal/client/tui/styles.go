@@ -106,6 +106,11 @@ var (
 
 	updateDoneStyle = lipgloss.NewStyle().
 			Foreground(colorGreen)
+
+	// Connection detail style for showing progress messages
+	connectionDetailStyle = lipgloss.NewStyle().
+				Foreground(colorDim).
+				Italic(true)
 )
 
 // StatusText returns styled status text

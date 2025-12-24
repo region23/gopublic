@@ -39,6 +39,10 @@ type Model struct {
 	// Connection state
 	status string // "connecting", "online", "reconnecting", "offline"
 
+	// Detailed connection status
+	connectionStage   string // Current stage of connection
+	connectionMessage string // Human-readable connection status message
+
 	// Tunnel information
 	tunnels []TunnelInfo
 
@@ -203,9 +207,13 @@ func (m Model) handleEvent(event events.Event) Model {
 	switch event.Type {
 	case events.EventConnecting:
 		m.status = "connecting"
+		m.connectionStage = ""
+		m.connectionMessage = ""
 
 	case events.EventConnected:
 		m.status = "online"
+		m.connectionStage = ""
+		m.connectionMessage = ""
 		if data, ok := event.Data.(events.ConnectedData); ok {
 			m.serverAddr = data.ServerAddr
 			m.serverLatency = data.Latency
@@ -213,9 +221,17 @@ func (m Model) handleEvent(event events.Event) Model {
 
 	case events.EventDisconnected:
 		m.status = "offline"
+		m.connectionStage = ""
+		m.connectionMessage = ""
 
 	case events.EventReconnecting:
 		m.status = "reconnecting"
+
+	case events.EventConnectionStatus:
+		if data, ok := event.Data.(events.ConnectionStatusData); ok {
+			m.connectionStage = data.Stage
+			m.connectionMessage = data.Message
+		}
 
 	case events.EventTunnelReady:
 		if data, ok := event.Data.(events.TunnelReadyData); ok {
@@ -323,8 +339,12 @@ func (m Model) renderHeader() string {
 func (m Model) renderStatus() string {
 	var lines []string
 
-	// Session Status
-	lines = append(lines, m.renderField("Session Status", StatusText(m.status)))
+	// Session Status with detailed message
+	statusText := StatusText(m.status)
+	if m.connectionMessage != "" && m.status != "online" {
+		statusText = statusText + " " + connectionDetailStyle.Render("("+m.connectionMessage+")")
+	}
+	lines = append(lines, m.renderField("Session Status", statusText))
 
 	// Version with update info
 	versionStr := Version
@@ -335,16 +355,16 @@ func (m Model) renderStatus() string {
 
 	// Update status (if downloading or completed)
 	if m.updateStatus != "" {
-		var statusText string
+		var updateStatusText string
 		switch m.updateStatus {
 		case "downloading":
-			statusText = updateDownloadingStyle.Render(m.updateMessage)
+			updateStatusText = updateDownloadingStyle.Render(m.updateMessage)
 		case "done":
-			statusText = updateDoneStyle.Render(m.updateMessage)
+			updateStatusText = updateDoneStyle.Render(m.updateMessage)
 		case "error":
-			statusText = updateErrorStyle.Render(m.updateMessage)
+			updateStatusText = updateErrorStyle.Render(m.updateMessage)
 		}
-		lines = append(lines, m.renderField("Update", statusText))
+		lines = append(lines, m.renderField("Update", updateStatusText))
 	}
 
 	// Latency

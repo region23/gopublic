@@ -15,6 +15,9 @@ const (
 	EventDisconnected
 	EventReconnecting
 
+	// Detailed connection status events
+	EventConnectionStatus // For showing detailed connection progress
+
 	// Request/Response events
 	EventRequestStart
 	EventRequestComplete
@@ -37,6 +40,8 @@ func (t EventType) String() string {
 		return "disconnected"
 	case EventReconnecting:
 		return "reconnecting"
+	case EventConnectionStatus:
+		return "connection_status"
 	case EventRequestStart:
 		return "request_start"
 	case EventRequestComplete:
@@ -92,6 +97,12 @@ type TunnelReadyData struct {
 	LocalPort    string
 	BoundDomains []string
 	Scheme       string
+}
+
+// ConnectionStatusData contains data for EventConnectionStatus.
+type ConnectionStatusData struct {
+	Stage   string // "dialing", "tls_handshake", "yamux_init", "authenticating", "requesting_tunnel"
+	Message string // Human-readable message
 }
 
 // Bus is a simple pub/sub event bus with fan-out delivery.
