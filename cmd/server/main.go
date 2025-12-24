@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -67,10 +69,16 @@ func main() {
 		}
 
 		autocertManager = &autocert.Manager{
-			Cache:      autocert.DirCache(cacheDir),
-			Prompt:     autocert.AcceptTOS,
-			HostPolicy: autocert.HostWhitelist(cfg.Domain, "*."+cfg.Domain),
-			Email:      cfg.Email,
+			Cache:  autocert.DirCache(cacheDir),
+			Prompt: autocert.AcceptTOS,
+			HostPolicy: func(ctx context.Context, host string) error {
+				// Allow exact domain match or any subdomain
+				if host == cfg.Domain || strings.HasSuffix(host, "."+cfg.Domain) {
+					return nil
+				}
+				return errors.New("host not configured")
+			},
+			Email: cfg.Email,
 		}
 		tlsConfig = autocertManager.TLSConfig()
 	}
