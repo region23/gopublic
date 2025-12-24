@@ -191,8 +191,11 @@ func (s *Server) handleConnection(conn net.Conn) {
 		return
 	}
 
+	// Create a single decoder for the entire handshake to avoid buffering issues
+	decoder := json.NewDecoder(stream)
+
 	// 2. Authenticate client
-	user, force, err := s.authenticate(stream, conn.RemoteAddr().String())
+	user, force, err := s.authenticate(decoder, stream, conn.RemoteAddr().String())
 	if err != nil {
 		log.Printf("Authentication failed for %s: %v", conn.RemoteAddr(), err)
 		session.Close()
@@ -220,7 +223,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 
 	// 4. Process tunnel request and bind domains
-	boundDomains, err := s.processTunnelRequest(stream, session, user, conn.RemoteAddr().String())
+	boundDomains, err := s.processTunnelRequest(decoder, stream, session, user, conn.RemoteAddr().String())
 	if err != nil {
 		log.Printf("Tunnel request failed for %s: %v", conn.RemoteAddr(), err)
 		session.Close()
@@ -269,12 +272,10 @@ func (s *Server) setupYamuxSession(conn net.Conn) (*yamux.Session, net.Conn, err
 }
 
 // authenticate validates the client's token and returns the user and force flag.
-func (s *Server) authenticate(stream net.Conn, remoteAddr string) (*models.User, bool, error) {
+func (s *Server) authenticate(decoder *json.Decoder, stream net.Conn, remoteAddr string) (*models.User, bool, error) {
 	// Set read deadline for auth request
 	stream.SetReadDeadline(time.Now().Add(handshakeTimeout))
 	defer stream.SetReadDeadline(time.Time{}) // Clear deadline after auth
-
-	decoder := json.NewDecoder(stream)
 
 	var authReq protocol.AuthRequest
 	if err := decoder.Decode(&authReq); err != nil {
@@ -293,11 +294,9 @@ func (s *Server) authenticate(stream net.Conn, remoteAddr string) (*models.User,
 }
 
 // processTunnelRequest handles the tunnel request and binds domains.
-func (s *Server) processTunnelRequest(stream net.Conn, session *yamux.Session, user *models.User, remoteAddr string) ([]string, error) {
+func (s *Server) processTunnelRequest(decoder *json.Decoder, stream net.Conn, session *yamux.Session, user *models.User, remoteAddr string) ([]string, error) {
 	// Set read deadline for tunnel request
 	stream.SetReadDeadline(time.Now().Add(handshakeTimeout))
-
-	decoder := json.NewDecoder(stream)
 
 	var tunnelReq protocol.TunnelRequest
 	if err := decoder.Decode(&tunnelReq); err != nil {
