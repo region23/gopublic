@@ -241,6 +241,7 @@ set -e
 
 REPO="` + i.GitHubRepo + `"
 BINARY_NAME="gopublic"
+INSTALL_DIR="/usr/local/bin"
 
 # Detect OS
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -261,15 +262,29 @@ esac
 BINARY="${BINARY_NAME}-${OS}-${ARCH}"
 URL="https://github.com/${REPO}/releases/latest/download/${BINARY}"
 
-echo "Downloading ${BINARY}..."
-curl -fsSL "$URL" -o "$BINARY_NAME"
-chmod +x "$BINARY_NAME"
+# Use temp directory to avoid permission issues
+TMPDIR=$(mktemp -d)
+trap "rm -rf $TMPDIR" EXIT
 
-echo ""
-echo "Downloaded: ./${BINARY_NAME}"
-echo ""
-echo "To install globally, run:"
-echo "  sudo mv ${BINARY_NAME} /usr/local/bin/"
+echo "Downloading ${BINARY}..."
+curl -fsSL "$URL" -o "$TMPDIR/$BINARY_NAME"
+chmod +x "$TMPDIR/$BINARY_NAME"
+
+# Try to install to /usr/local/bin
+if [ -w "$INSTALL_DIR" ]; then
+  mv "$TMPDIR/$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
+  echo ""
+  echo "Installed: $INSTALL_DIR/$BINARY_NAME"
+  echo "Run 'gopublic --help' to get started."
+else
+  # Copy to current directory if no write access to install dir
+  cp "$TMPDIR/$BINARY_NAME" "./$BINARY_NAME"
+  echo ""
+  echo "Downloaded: ./${BINARY_NAME}"
+  echo ""
+  echo "To install globally, run:"
+  echo "  sudo mv ${BINARY_NAME} ${INSTALL_DIR}/"
+fi
 `
 	c.Header("Content-Type", "text/plain; charset=utf-8")
 	c.String(http.StatusOK, script)
