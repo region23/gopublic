@@ -111,6 +111,9 @@ func main() {
 	// 7. Start Control Plane
 	controlPlane := server.NewServerWithConfig(cfg, registry, tlsConfig)
 
+	// Connect dashboard to user sessions for connection status display
+	dashHandler.SetUserSessions(controlPlane.UserSessions)
+
 	serverErrors := make(chan error, 4)
 
 	go func() {

@@ -32,6 +32,13 @@ import (
 //go:embed templates/*
 var templateFS embed.FS
 
+// UserSessionProvider provides information about active user sessions.
+// This interface is implemented by server.UserSessionRegistry.
+type UserSessionProvider interface {
+	IsConnected(userID uint) bool
+	GetActiveDomains(userID uint) []string
+}
+
 type Handler struct {
 	BotToken            string
 	BotName             string
@@ -43,6 +50,12 @@ type Handler struct {
 	YandexClientID      string
 	YandexClientSecret  string
 	Session             *auth.SessionManager
+	UserSessions        UserSessionProvider // Optional: provides active session info
+}
+
+// SetUserSessions sets the user session provider for displaying connection status.
+func (h *Handler) SetUserSessions(provider UserSessionProvider) {
+	h.UserSessions = provider
 }
 
 // NewHandlerWithConfig creates a new dashboard handler with the given configuration.
@@ -195,6 +208,14 @@ func (h *Handler) Index(c *gin.Context) {
 	bandwidthToday, _ := storage.GetUserBandwidthToday(user.ID)
 	bandwidthTotal, _ := storage.GetUserTotalBandwidth(user.ID)
 
+	// Check connection status
+	var isConnected bool
+	var activeDomains []string
+	if h.UserSessions != nil {
+		isConnected = h.UserSessions.IsConnected(user.ID)
+		activeDomains = h.UserSessions.GetActiveDomains(user.ID)
+	}
+
 	c.HTML(http.StatusOK, "index.html", gin.H{
 		"User":            user,
 		"Token":           token.TokenString,
@@ -208,6 +229,8 @@ func (h *Handler) Index(c *gin.Context) {
 		"BandwidthToday":  bandwidthToday,
 		"BandwidthTotal":  bandwidthTotal,
 		"BandwidthLimit":  h.DailyBandwidthLimit,
+		"IsConnected":     isConnected,
+		"ActiveDomains":   activeDomains,
 	})
 }
 

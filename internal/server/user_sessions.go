@@ -43,6 +43,17 @@ func (r *UserSessionRegistry) IsConnected(userID uint) bool {
 	return ok
 }
 
+// GetActiveDomains returns the list of active domains for a user.
+// Returns nil if the user has no active session.
+func (r *UserSessionRegistry) GetActiveDomains(userID uint) []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if sess, ok := r.sessions[userID]; ok {
+		return sess.Domains
+	}
+	return nil
+}
+
 // Register registers a new session for a user.
 // Returns the old session if one existed (caller should close it).
 func (r *UserSessionRegistry) Register(userID uint, session *yamux.Session, domains []string) *UserSession {
