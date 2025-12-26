@@ -289,6 +289,57 @@ func (s *SQLiteStore) GetUserTotalBandwidth(userID uint) (int64, error) {
 	return total, result.Error
 }
 
+// --- Statistics Operations ---
+
+// UserStats holds user information with bandwidth statistics
+type UserStats struct {
+	UserID       uint
+	TelegramID   int64
+	YandexID     string
+	Email        string
+	Username     string
+	FirstName    string
+	LastName     string
+	BytesUsed    int64
+}
+
+// GetTotalUserCount returns the total number of registered users
+func (s *SQLiteStore) GetTotalUserCount() (int64, error) {
+	var count int64
+	result := s.db.Model(&models.User{}).Count(&count)
+	return count, result.Error
+}
+
+// GetTopUsersByBandwidthToday returns top N users by bandwidth usage today
+func (s *SQLiteStore) GetTopUsersByBandwidthToday(limit int) ([]UserStats, error) {
+	today := time.Now().Truncate(24 * time.Hour)
+
+	var stats []UserStats
+	result := s.db.Table("user_bandwidths").
+		Select("user_bandwidths.user_id, users.telegram_id, users.yandex_id, users.email, users.username, users.first_name, users.last_name, user_bandwidths.bytes_used").
+		Joins("JOIN users ON users.id = user_bandwidths.user_id").
+		Where("user_bandwidths.date = ?", today).
+		Order("user_bandwidths.bytes_used DESC").
+		Limit(limit).
+		Scan(&stats)
+
+	return stats, result.Error
+}
+
+// GetTopUsersByBandwidthAllTime returns top N users by total bandwidth usage
+func (s *SQLiteStore) GetTopUsersByBandwidthAllTime(limit int) ([]UserStats, error) {
+	var stats []UserStats
+	result := s.db.Table("user_bandwidths").
+		Select("user_bandwidths.user_id, users.telegram_id, users.yandex_id, users.email, users.username, users.first_name, users.last_name, SUM(user_bandwidths.bytes_used) as bytes_used").
+		Joins("JOIN users ON users.id = user_bandwidths.user_id").
+		Group("user_bandwidths.user_id").
+		Order("bytes_used DESC").
+		Limit(limit).
+		Scan(&stats)
+
+	return stats, result.Error
+}
+
 // --- Transaction Operations ---
 
 // UserRegistration holds data for creating a new user with token and domains
@@ -542,4 +593,31 @@ func AddUserBandwidth(userID uint, bytes int64) error {
 		return ErrDBError
 	}
 	return (&SQLiteStore{db: DB}).AddUserBandwidth(userID, bytes)
+}
+
+// GetTotalUserCount gets total user count using the global DB.
+// Deprecated: Use SQLiteStore.GetTotalUserCount instead.
+func GetTotalUserCount() (int64, error) {
+	if DB == nil {
+		return 0, ErrDBError
+	}
+	return (&SQLiteStore{db: DB}).GetTotalUserCount()
+}
+
+// GetTopUsersByBandwidthToday gets top users by today's bandwidth using the global DB.
+// Deprecated: Use SQLiteStore.GetTopUsersByBandwidthToday instead.
+func GetTopUsersByBandwidthToday(limit int) ([]UserStats, error) {
+	if DB == nil {
+		return nil, ErrDBError
+	}
+	return (&SQLiteStore{db: DB}).GetTopUsersByBandwidthToday(limit)
+}
+
+// GetTopUsersByBandwidthAllTime gets top users by all-time bandwidth using the global DB.
+// Deprecated: Use SQLiteStore.GetTopUsersByBandwidthAllTime instead.
+func GetTopUsersByBandwidthAllTime(limit int) ([]UserStats, error) {
+	if DB == nil {
+		return nil, ErrDBError
+	}
+	return (&SQLiteStore{db: DB}).GetTopUsersByBandwidthAllTime(limit)
 }

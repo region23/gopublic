@@ -20,6 +20,7 @@ import (
 	"gopublic/internal/ingress"
 	"gopublic/internal/server"
 	"gopublic/internal/storage"
+	"gopublic/internal/telegram"
 )
 
 const shutdownTimeout = 30 * time.Second
@@ -57,7 +58,14 @@ func main() {
 		log.Fatalf("Failed to initialize dashboard: %v", err)
 	}
 
-	// 5. Configure TLS & Autocert (if applicable)
+	// 5. Start Telegram Admin Bot
+	var adminBot *telegram.Bot
+	if cfg.HasAdminNotifications() {
+		adminBot = telegram.NewBot(cfg.TelegramBotToken, cfg.AdminTelegramID)
+		adminBot.Start()
+	}
+
+	// 6. Configure TLS & Autocert (if applicable)
 	var tlsConfig *tls.Config
 	var autocertManager *autocert.Manager
 
@@ -83,7 +91,7 @@ func main() {
 		tlsConfig = autocertManager.TLSConfig()
 	}
 
-	// 6. Start Control Plane
+	// 7. Start Control Plane
 	controlPlane := server.NewServerWithConfig(cfg, registry, tlsConfig)
 
 	serverErrors := make(chan error, 4)
@@ -94,7 +102,7 @@ func main() {
 		}
 	}()
 
-	// 7. Start Public Ingress
+	// 8. Start Public Ingress
 	ing := ingress.NewIngressWithConfig(cfg, registry, dashHandler)
 
 	var httpServers []*http.Server
@@ -174,6 +182,11 @@ func main() {
 
 	if err := controlPlane.Shutdown(shutdownCtx); err != nil {
 		log.Printf("Control plane shutdown error: %v", err)
+	}
+
+	// Stop Telegram bot
+	if adminBot != nil {
+		adminBot.Stop()
 	}
 
 	log.Println("Server shutdown complete")
