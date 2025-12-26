@@ -588,6 +588,61 @@
             color: white;
         }
 
+        /* Stats Section */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 1rem;
+            background: var(--bg-paper);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+        }
+
+        .stat-value {
+            font-family: var(--font-mono);
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: var(--lumon-teal);
+        }
+
+        .stat-label {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        .stat-limit {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: var(--border-light);
+            border-radius: 2px;
+            margin-top: 0.75rem;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--lumon-teal), var(--lumon-teal-light));
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        @media (max-width: 500px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         /* Download Section */
         .download-grid {
             display: grid;
@@ -930,6 +985,28 @@
                         <a href="/auth/yandex" class="link-btn">Привязать</a>
                         {{end}}
                         {{end}}
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card-header">
+                <div class="card-label">Статистика трафика</div>
+            </div>
+            <div class="card-body">
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value">{{formatBytes .BandwidthToday}}</div>
+                        <div class="stat-label">Использовано сегодня</div>
+                        <div class="stat-limit">из {{formatBytes .BandwidthLimit}}</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: {{bandwidthPercent .BandwidthToday .BandwidthLimit}}%"></div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{{formatBytes .BandwidthTotal}}</div>
+                        <div class="stat-label">Всего за всё время</div>
                     </div>
                 </div>
             </div>

@@ -64,9 +64,12 @@ type Event struct {
 
 // ConnectedData contains data for EventConnected.
 type ConnectedData struct {
-	ServerAddr   string
-	BoundDomains []string
-	Latency      time.Duration
+	ServerAddr       string
+	BoundDomains     []string
+	Latency          time.Duration
+	BandwidthToday   int64 // Bytes used today
+	BandwidthTotal   int64 // Total bytes used all time
+	BandwidthLimit   int64 // Daily bandwidth limit in bytes
 }
 
 // ReconnectingData contains data for EventReconnecting.

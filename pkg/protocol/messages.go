@@ -21,6 +21,13 @@ type TunnelRequest struct {
 	RequestedDomains []string `json:"requested_domains"`
 }
 
+// ServerStats contains user bandwidth statistics from the server.
+type ServerStats struct {
+	BandwidthToday int64 `json:"bandwidth_today"` // Bytes used today
+	BandwidthTotal int64 `json:"bandwidth_total"` // Total bytes used all time
+	BandwidthLimit int64 `json:"bandwidth_limit"` // Daily bandwidth limit in bytes
+}
+
 // InitResponse is sent by the server to indicate success or failure of the handshake.
 type InitResponse struct {
 	Success   bool      `json:"success"`
@@ -28,5 +35,6 @@ type InitResponse struct {
 	ErrorCode ErrorCode `json:"error_code,omitempty"` // Structured error code
 	// AssignedDomains could be useful if we support random assignment (future),
 	// but for now it confirms what was bound.
-	BoundDomains []string `json:"bound_domains,omitempty"`
+	BoundDomains []string     `json:"bound_domains,omitempty"`
+	ServerStats  *ServerStats `json:"server_stats,omitempty"` // User bandwidth statistics
 }

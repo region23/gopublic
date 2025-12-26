@@ -36,20 +36,24 @@ type Server struct {
 	// MaxConnections limits concurrent connections (0 = unlimited)
 	MaxConnections int
 	connSem        chan struct{}
+
+	// DailyBandwidthLimit is the daily bandwidth limit per user in bytes
+	DailyBandwidthLimit int64
 }
 
 // NewServerWithConfig creates a new server with the given configuration.
 func NewServerWithConfig(cfg *config.Config, registry *TunnelRegistry, tlsConfig *tls.Config) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Server{
-		Registry:       registry,
-		UserSessions:   NewUserSessionRegistry(),
-		Port:           cfg.ControlPlanePort,
-		TLSConfig:      tlsConfig,
-		RootDomain:     cfg.Domain,
-		ctx:            ctx,
-		cancel:         cancel,
-		MaxConnections: cfg.MaxConnections,
+		Registry:            registry,
+		UserSessions:        NewUserSessionRegistry(),
+		Port:                cfg.ControlPlanePort,
+		TLSConfig:           tlsConfig,
+		RootDomain:          cfg.Domain,
+		ctx:                 ctx,
+		cancel:              cancel,
+		MaxConnections:      cfg.MaxConnections,
+		DailyBandwidthLimit: cfg.DailyBandwidthLimit,
 	}
 }
 
@@ -234,7 +238,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	s.UserSessions.Register(user.ID, session, boundDomains)
 
 	// 6. Send success response
-	if err := s.sendSuccessResponse(stream, boundDomains); err != nil {
+	if err := s.sendSuccessResponse(stream, boundDomains, user.ID); err != nil {
 		log.Printf("Failed to send success response to %s: %v", conn.RemoteAddr(), err)
 	}
 	log.Printf("Handshake complete for %s. Bound domains: %v", conn.RemoteAddr(), boundDomains)
@@ -365,10 +369,19 @@ func (s *Server) bindDomains(session *yamux.Session, userID uint, requestedDomai
 }
 
 // sendSuccessResponse sends the handshake success response to the client.
-func (s *Server) sendSuccessResponse(stream net.Conn, boundDomains []string) error {
+func (s *Server) sendSuccessResponse(stream net.Conn, boundDomains []string, userID uint) error {
+	// Fetch bandwidth statistics for the user
+	bandwidthToday, _ := storage.GetUserBandwidthToday(userID)
+	bandwidthTotal, _ := storage.GetUserTotalBandwidth(userID)
+
 	resp := protocol.InitResponse{
 		Success:      true,
 		BoundDomains: boundDomains,
+		ServerStats: &protocol.ServerStats{
+			BandwidthToday: bandwidthToday,
+			BandwidthTotal: bandwidthTotal,
+			BandwidthLimit: s.DailyBandwidthLimit,
+		},
 	}
 	return json.NewEncoder(stream).Encode(resp)
 }

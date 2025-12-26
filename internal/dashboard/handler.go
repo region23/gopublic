@@ -38,7 +38,7 @@ type Handler struct {
 	Domain              string
 	GitHubRepo          string
 	DomainsPerUser      int
-	DailyBandwidthMB    int
+	DailyBandwidthLimit int64 // in bytes
 	AdminTelegramID     int64
 	YandexClientID      string
 	YandexClientSecret  string
@@ -63,7 +63,7 @@ func NewHandlerWithConfig(cfg *config.Config) (*Handler, error) {
 		Domain:             cfg.Domain,
 		GitHubRepo:         cfg.GitHubRepo,
 		DomainsPerUser:     cfg.DomainsPerUser,
-		DailyBandwidthMB:   int(cfg.DailyBandwidthLimit / (1024 * 1024)),
+		DailyBandwidthLimit: cfg.DailyBandwidthLimit,
 		AdminTelegramID:    cfg.AdminTelegramID,
 		YandexClientID:     cfg.YandexClientID,
 		YandexClientSecret: cfg.YandexClientSecret,
@@ -99,6 +99,28 @@ func (h *Handler) LoadTemplates(r *gin.Engine) error {
 	// Define template functions
 	funcMap := template.FuncMap{
 		"add": func(a, b int) int { return a + b },
+		"formatBytes": func(bytes int64) string {
+			if bytes < 1024 {
+				return fmt.Sprintf("%d B", bytes)
+			}
+			if bytes < 1024*1024 {
+				return fmt.Sprintf("%.1f KB", float64(bytes)/1024)
+			}
+			if bytes < 1024*1024*1024 {
+				return fmt.Sprintf("%.1f MB", float64(bytes)/(1024*1024))
+			}
+			return fmt.Sprintf("%.2f GB", float64(bytes)/(1024*1024*1024))
+		},
+		"bandwidthPercent": func(used, limit int64) int {
+			if limit == 0 {
+				return 0
+			}
+			pct := int(float64(used) / float64(limit) * 100)
+			if pct > 100 {
+				return 100
+			}
+			return pct
+		},
 	}
 
 	// Parse templates with functions
@@ -169,6 +191,10 @@ func (h *Handler) Index(c *gin.Context) {
 		return
 	}
 
+	// Fetch bandwidth statistics
+	bandwidthToday, _ := storage.GetUserBandwidthToday(user.ID)
+	bandwidthTotal, _ := storage.GetUserTotalBandwidth(user.ID)
+
 	c.HTML(http.StatusOK, "index.html", gin.H{
 		"User":            user,
 		"Token":           token.TokenString,
@@ -179,6 +205,9 @@ func (h *Handler) Index(c *gin.Context) {
 		"TermsAccepted":   user.TermsAcceptedAt != nil,
 		"TelegramEnabled": h.BotToken != "" && h.BotName != "",
 		"YandexEnabled":   h.YandexClientID != "" && h.YandexClientSecret != "",
+		"BandwidthToday":  bandwidthToday,
+		"BandwidthTotal":  bandwidthTotal,
+		"BandwidthLimit":  h.DailyBandwidthLimit,
 	})
 }
 
@@ -350,7 +379,7 @@ func (h *Handler) Terms(c *gin.Context) {
 		"GitHubRepo":          h.GitHubRepo,
 		"Version":             version.Version,
 		"LastUpdated":         "26 декабря 2024",
-		"DailyBandwidthLimitMB": h.DailyBandwidthMB,
+		"DailyBandwidthLimitMB": h.DailyBandwidthLimit / (1024 * 1024),
 		"DomainsPerUser":      h.DomainsPerUser,
 	})
 }

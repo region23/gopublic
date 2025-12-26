@@ -54,9 +54,9 @@ open http://localhost:4040
 
 **Server components (`internal/`):**
 - `server/` — Control plane on `:4443`, yamux multiplexing, handshake protocol
-- `ingress/` — HTTP router (Gin), routes by Host header to dashboard or tunnels
-- `dashboard/` — Telegram OAuth, user registration, token display
-- `storage/` — SQLite via GORM (users, tokens, domains)
+- `ingress/` — HTTP router (Gin), routes by Host header to dashboard or tunnels, bandwidth limiting
+- `dashboard/` — Telegram/Yandex OAuth, user registration, token display, Terms of Service, Abuse reporting
+- `storage/` — SQLite via GORM (users, tokens, domains, abuse_reports, user_bandwidths)
 - `auth/` — Token generation (crypto/rand), session management (securecookie)
 - `middleware/` — CSRF protection
 
@@ -89,25 +89,77 @@ open http://localhost:4040
 - Session cookies: HMAC-SHA256 signing + AES encryption (gorilla/securecookie)
 - Tokens: SHA256 hashed in DB, plaintext shown only once at creation
 - CSRF: Double-submit cookie pattern for POST endpoints
+- Terms of Service acceptance required before using tunnels
+- Abuse reporting with admin Telegram notifications
+
+**Abuse Protection:**
+- Daily bandwidth limit per user (default: 100MB)
+- Terms of Service with explicit prohibition of malware/phishing
+- Abuse report form with Telegram notifications to admin
+- Domain limits per user (configurable)
 
 ## Environment Variables
 
-| Variable | Purpose |
-|----------|---------|
-| `DOMAIN_NAME` | Root domain (enables HTTPS if set) |
-| `PROJECT_NAME` | Branding name for landing page (default: "Go Public") |
-| `EMAIL` | For Let's Encrypt registration (required if DOMAIN_NAME set) |
-| `INSECURE_HTTP` | Set `true` for local dev without TLS |
-| `TELEGRAM_BOT_TOKEN` | For OAuth |
-| `TELEGRAM_BOT_NAME` | Bot username for login widget |
-| `GITHUB_REPO` | GitHub repo for client downloads (e.g., "username/gopublic") |
-| `SESSION_HASH_KEY` | 32-byte hex for cookie signing (optional) |
-| `SESSION_BLOCK_KEY` | 32-byte hex for cookie encryption (optional) |
+### Core Settings
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `DOMAIN_NAME` | Root domain (enables HTTPS if set) | *empty* (HTTP mode) |
+| `PROJECT_NAME` | Branding name for landing page | `Go Public` |
+| `EMAIL` | For Let's Encrypt registration | *required if DOMAIN_NAME set* |
+| `INSECURE_HTTP` | Set `true` for local dev without TLS | `false` |
+| `DB_PATH` | SQLite database file path | `gopublic.db` |
+| `CONTROL_PLANE_PORT` | Control plane TCP port | `:4443` |
+| `GITHUB_REPO` | GitHub repo for client downloads (e.g., `username/gopublic`) | *empty* |
+
+### User Limits
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `DOMAINS_PER_USER` | Number of domains assigned to new users | `2` |
+| `DAILY_BANDWIDTH_LIMIT_MB` | Daily bandwidth limit per user in MB (0 = unlimited) | `100` |
+
+### Authentication
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `TELEGRAM_BOT_TOKEN` | Telegram Bot API token for OAuth | *empty* |
+| `TELEGRAM_BOT_NAME` | Telegram bot username (without @) | *empty* |
+| `YANDEX_CLIENT_ID` | Yandex OAuth application client ID | *empty* |
+| `YANDEX_CLIENT_SECRET` | Yandex OAuth application client secret | *empty* |
+| `SESSION_HASH_KEY` | 32-byte hex for cookie signing | *random in dev* |
+| `SESSION_BLOCK_KEY` | 32-byte hex for cookie encryption | *random in dev* |
+
+### Notifications & Admin
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `ADMIN_TELEGRAM_ID` | Telegram user ID for abuse report notifications | *empty* |
 
 ## Database
 
-SQLite with GORM auto-migration. Tables: `users`, `tokens`, `domains`.
-Tokens stored as SHA256 hash, shown to user only once at creation.
+SQLite with GORM auto-migration. Tables:
+- `users` — User accounts with Telegram/Yandex IDs, terms acceptance
+- `tokens` — Auth tokens (SHA256 hashed)
+- `domains` — User-assigned subdomains
+- `abuse_reports` — Abuse reports from users
+- `user_bandwidths` — Daily bandwidth usage tracking
+
+## Dashboard Routes
+
+| Path | Purpose |
+|------|---------|
+| `/` | Main dashboard (requires auth) |
+| `/login` | Login page (Telegram + Yandex OAuth) |
+| `/logout` | Logout |
+| `/terms` | Terms of Service page |
+| `/abuse` | Abuse report form |
+| `/auth/telegram` | Telegram OAuth callback |
+| `/auth/yandex` | Yandex OAuth initiation |
+| `/auth/yandex/callback` | Yandex OAuth callback |
+| `/link/telegram` | Link Telegram to existing account |
+| `/api/regenerate-token` | POST: Regenerate auth token |
+| `/api/accept-terms` | POST: Accept Terms of Service |
 
 ## Ports
 
@@ -129,4 +181,15 @@ docker-compose up -d --build
 docker-compose logs -f
 ```
 
-Requires `.env` with `DOMAIN_NAME`, `EMAIL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_NAME`.
+Requires `.env` with `DOMAIN_NAME`, `EMAIL`, and at least one OAuth provider configured.
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `internal/ingress/ingress.go` | HTTP routing, bandwidth limiting, tunnel proxying |
+| `internal/dashboard/handler.go` | OAuth handlers, Terms/Abuse endpoints |
+| `internal/server/registry.go` | Tunnel session registry with user tracking |
+| `internal/storage/db.go` | Database operations |
+| `internal/config/config.go` | Configuration loading from ENV |
+| `.env.example` | Example environment configuration |

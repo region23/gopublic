@@ -279,6 +279,16 @@ func (s *SQLiteStore) AddUserBandwidth(userID uint, bytes int64) error {
 	return result.Error
 }
 
+// GetUserTotalBandwidth returns total bandwidth used by user across all days
+func (s *SQLiteStore) GetUserTotalBandwidth(userID uint) (int64, error) {
+	var total int64
+	result := s.db.Model(&models.UserBandwidth{}).
+		Where("user_id = ?", userID).
+		Select("COALESCE(SUM(bytes_used), 0)").
+		Scan(&total)
+	return total, result.Error
+}
+
 // --- Transaction Operations ---
 
 // UserRegistration holds data for creating a new user with token and domains
@@ -514,6 +524,15 @@ func GetUserBandwidthToday(userID uint) (int64, error) {
 		return 0, ErrDBError
 	}
 	return (&SQLiteStore{db: DB}).GetUserBandwidthToday(userID)
+}
+
+// GetUserTotalBandwidth gets total bandwidth usage for a user using the global DB.
+// Deprecated: Use SQLiteStore.GetUserTotalBandwidth instead.
+func GetUserTotalBandwidth(userID uint) (int64, error) {
+	if DB == nil {
+		return 0, ErrDBError
+	}
+	return (&SQLiteStore{db: DB}).GetUserTotalBandwidth(userID)
 }
 
 // AddUserBandwidth adds bandwidth usage for a user using the global DB.

@@ -37,6 +37,7 @@ type Store interface {
 
 	// Bandwidth operations
 	GetUserBandwidthToday(userID uint) (int64, error)
+	GetUserTotalBandwidth(userID uint) (int64, error)
 	AddUserBandwidth(userID uint, bytes int64) error
 
 	// Transaction support

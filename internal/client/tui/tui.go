@@ -72,6 +72,11 @@ type Model struct {
 	updateChecked  bool
 	updateStatus   string // "", "checking", "downloading", "done", "error"
 	updateMessage  string
+
+	// Server bandwidth stats
+	serverBandwidthToday int64
+	serverBandwidthTotal int64
+	serverBandwidthLimit int64
 }
 
 // NewModel creates a new TUI model
@@ -217,6 +222,9 @@ func (m Model) handleEvent(event events.Event) Model {
 		if data, ok := event.Data.(events.ConnectedData); ok {
 			m.serverAddr = data.ServerAddr
 			m.serverLatency = data.Latency
+			m.serverBandwidthToday = data.BandwidthToday
+			m.serverBandwidthTotal = data.BandwidthTotal
+			m.serverBandwidthLimit = data.BandwidthLimit
 		}
 
 	case events.EventDisconnected:
@@ -434,6 +442,22 @@ func (m Model) renderStats() string {
 	valueRow += statsValueStyle.Render(formatDuration(snap.P90))
 	lines = append(lines, valueRow)
 
+	// Bandwidth stats from server (if available)
+	if m.serverBandwidthLimit > 0 {
+		lines = append(lines, "")
+		bandwidthLine := labelStyle.Render("Bandwidth") +
+			statsHeaderStyle.Render("today") +
+			statsHeaderStyle.Render("total") +
+			statsHeaderStyle.Render("limit")
+		lines = append(lines, bandwidthLine)
+
+		bandwidthValueRow := labelStyle.Render("") +
+			statsValueStyle.Render(formatBytesShort(m.serverBandwidthToday)) +
+			statsValueStyle.Render(formatBytesShort(m.serverBandwidthTotal)) +
+			statsValueStyle.Render(formatBytesShort(m.serverBandwidthLimit))
+		lines = append(lines, bandwidthValueRow)
+	}
+
 	return strings.Join(lines, "\n")
 }
 
@@ -473,6 +497,19 @@ func truncatePath(path string, maxLen int) string {
 		return path
 	}
 	return path[:maxLen-3] + "..."
+}
+
+func formatBytesShort(bytes int64) string {
+	if bytes < 1024 {
+		return fmt.Sprintf("%dB", bytes)
+	}
+	if bytes < 1024*1024 {
+		return fmt.Sprintf("%.0fK", float64(bytes)/1024)
+	}
+	if bytes < 1024*1024*1024 {
+		return fmt.Sprintf("%.1fM", float64(bytes)/(1024*1024))
+	}
+	return fmt.Sprintf("%.1fG", float64(bytes)/(1024*1024*1024))
 }
 
 // Run starts the TUI application

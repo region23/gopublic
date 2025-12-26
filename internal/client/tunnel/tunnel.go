@@ -285,12 +285,18 @@ func (t *Tunnel) handleSession(conn net.Conn, connectStart time.Time) error {
 		scheme = "http"
 	}
 
-	// Publish connected event
-	t.publishEvent(events.EventConnected, events.ConnectedData{
+	// Publish connected event with server stats
+	connData := events.ConnectedData{
 		ServerAddr:   t.ServerAddr,
 		BoundDomains: resp.BoundDomains,
 		Latency:      latency,
-	})
+	}
+	if resp.ServerStats != nil {
+		connData.BandwidthToday = resp.ServerStats.BandwidthToday
+		connData.BandwidthTotal = resp.ServerStats.BandwidthTotal
+		connData.BandwidthLimit = resp.ServerStats.BandwidthLimit
+	}
+	t.publishEvent(events.EventConnected, connData)
 
 	// Publish tunnel ready event for each domain
 	for _, d := range resp.BoundDomains {
