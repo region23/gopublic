@@ -308,11 +308,6 @@ func (t *Tunnel) handleSession(conn net.Conn, connectStart time.Time) error {
 		})
 	}
 
-	// Log to console (legacy output, will be replaced by TUI)
-	fmt.Printf("\nTunnel Established! Incoming traffic on:\n")
-	for _, d := range resp.BoundDomains {
-		fmt.Printf(" - %s://%s -> localhost:%s\n", scheme, d, t.LocalPort)
-	}
 	stream.Close() // Handshake done
 
 	// Accept Streams with proper tracking
