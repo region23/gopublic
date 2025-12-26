@@ -227,6 +227,8 @@ func (h *Handler) TelegramCallback(c *gin.Context) {
 	username := data.Get("username")
 	photoURL := data.Get("photo_url")
 
+	log.Printf("Telegram callback: id=%s, first_name=%s, photo_url=%s", idStr, firstName, photoURL)
+
 	// Find or Create User
 	user, err := storage.GetUserByTelegramID(tgID)
 
@@ -270,7 +272,9 @@ func (h *Handler) TelegramCallback(c *gin.Context) {
 		user.FirstName = firstName
 		user.LastName = lastName
 		user.Username = username
-		user.PhotoURL = photoURL
+		if photoURL != "" {
+			user.PhotoURL = photoURL
+		}
 		if err := storage.UpdateUser(user); err != nil {
 			log.Printf("Failed to update user: %v", err)
 			c.String(http.StatusInternalServerError, "Failed to update user")
@@ -534,11 +538,21 @@ func (h *Handler) sendAbuseNotification(report *models.AbuseReport) {
 
 // YandexUserInfo represents user info from Yandex OAuth
 type YandexUserInfo struct {
-	ID           string `json:"id"`
-	Login        string `json:"login"`
-	DefaultEmail string `json:"default_email"`
-	FirstName    string `json:"first_name"`
-	LastName     string `json:"last_name"`
+	ID              string `json:"id"`
+	Login           string `json:"login"`
+	DefaultEmail    string `json:"default_email"`
+	FirstName       string `json:"first_name"`
+	LastName        string `json:"last_name"`
+	DefaultAvatarID string `json:"default_avatar_id"`
+	IsAvatarEmpty   bool   `json:"is_avatar_empty"`
+}
+
+// GetAvatarURL returns the full avatar URL for Yandex user
+func (y *YandexUserInfo) GetAvatarURL() string {
+	if y.IsAvatarEmpty || y.DefaultAvatarID == "" {
+		return ""
+	}
+	return fmt.Sprintf("https://avatars.yandex.net/get-yapic/%s/islands-200", y.DefaultAvatarID)
 }
 
 // getYandexRedirectURL returns the OAuth redirect URL based on domain
@@ -698,6 +712,7 @@ func (h *Handler) YandexCallback(c *gin.Context) {
 			FirstName: yandexUser.FirstName,
 			LastName:  yandexUser.LastName,
 			Username:  yandexUser.Login,
+			PhotoURL:  yandexUser.GetAvatarURL(),
 		}
 
 		// Generate domain names
@@ -732,6 +747,9 @@ func (h *Handler) YandexCallback(c *gin.Context) {
 		user.Username = yandexUser.Login
 		if yandexUser.DefaultEmail != "" {
 			user.Email = yandexUser.DefaultEmail
+		}
+		if avatarURL := yandexUser.GetAvatarURL(); avatarURL != "" {
+			user.PhotoURL = avatarURL
 		}
 		if err := storage.UpdateUser(user); err != nil {
 			log.Printf("Failed to update user: %v", err)

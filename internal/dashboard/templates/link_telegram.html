@@ -141,6 +141,13 @@
             justify-content: center;
             font-weight: 500;
             color: var(--lumon-teal);
+            overflow: hidden;
+        }
+
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         .user-details {
@@ -237,7 +244,11 @@
 
             <div class="user-info">
                 <div class="user-avatar">
-                    {{if .User.FirstName}}{{slice .User.FirstName 0 1}}{{else}}?{{end}}
+                    {{if .User.PhotoURL}}
+                        <img src="{{.User.PhotoURL}}" alt="{{.User.FirstName}}">
+                    {{else}}
+                        {{if .User.FirstName}}{{slice .User.FirstName 0 1}}{{else}}?{{end}}
+                    {{end}}
                 </div>
                 <div class="user-details">
                     <div class="user-name">{{.User.FirstName}} {{.User.LastName}}</div>
