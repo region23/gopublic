@@ -10,22 +10,26 @@ import (
 	"gopublic/internal/client/stats"
 )
 
-// TunnelManager coordinates multiple tunnel connections
+// TunnelManager coordinates multiple tunnel connections using a shared session.
 type TunnelManager struct {
 	ServerAddr string
 	Token      string
 	Force      bool // Force disconnect existing sessions
+	NoCache    bool // Add Cache-Control: no-store to responses
 	tunnels    []*ManagedTunnel
 	mu         sync.Mutex
 	eventBus   *events.Bus
 	stats      *stats.Stats
+
+	// Shared tunnel instance (used when starting)
+	sharedTunnel *SharedTunnel
+	cancelFunc   context.CancelFunc
 }
 
 // ManagedTunnel wraps a tunnel with its metadata
 type ManagedTunnel struct {
 	Name      string
-	Tunnel    *Tunnel
-	Cancel    context.CancelFunc
+	LocalPort string
 	Subdomain string
 }
 
@@ -53,60 +57,55 @@ func (tm *TunnelManager) SetStats(stats *stats.Stats) {
 	tm.stats = stats
 }
 
+// SetNoCache enables Cache-Control: no-store header on all responses
+func (tm *TunnelManager) SetNoCache(noCache bool) {
+	tm.NoCache = noCache
+}
+
 // AddTunnel adds a tunnel configuration to the manager
 func (tm *TunnelManager) AddTunnel(name, localPort, subdomain string) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
-	t := NewTunnel(tm.ServerAddr, tm.Token, localPort)
-	t.Subdomain = subdomain
-	t.Force = tm.Force
-	t.SetEventBus(tm.eventBus)
-	t.SetStats(tm.stats)
-
 	mt := &ManagedTunnel{
 		Name:      name,
-		Tunnel:    t,
+		LocalPort: localPort,
 		Subdomain: subdomain,
 	}
 	tm.tunnels = append(tm.tunnels, mt)
 }
 
-// StartAll starts all configured tunnels concurrently
+// StartAll starts all configured tunnels using a single shared connection.
 func (tm *TunnelManager) StartAll(ctx context.Context) error {
+	tm.mu.Lock()
 	if len(tm.tunnels) == 0 {
+		tm.mu.Unlock()
 		return fmt.Errorf("no tunnels configured")
 	}
 
-	var wg sync.WaitGroup
-	errChan := make(chan error, len(tm.tunnels))
-
+	// Build subdomain -> localPort mapping
+	tunnelMap := make(map[string]string)
 	for _, mt := range tm.tunnels {
-		wg.Add(1)
-		tunnelCtx, cancel := context.WithCancel(ctx)
-		mt.Cancel = cancel
-
-		go func(mt *ManagedTunnel, ctx context.Context) {
-			defer wg.Done()
-			logger.Info("Starting tunnel '%s': localhost:%s -> %s", mt.Name, mt.Tunnel.LocalPort, mt.Subdomain)
-
-			err := mt.Tunnel.StartWithReconnect(ctx, nil)
-			if err != nil && err != context.Canceled {
-				errChan <- fmt.Errorf("tunnel '%s' failed: %v", mt.Name, err)
-			}
-		}(mt, tunnelCtx)
+		tunnelMap[mt.Subdomain] = mt.LocalPort
+		logger.Info("Configured tunnel '%s': localhost:%s -> %s", mt.Name, mt.LocalPort, mt.Subdomain)
 	}
 
-	// Wait for context cancellation or first error
-	select {
-	case err := <-errChan:
-		tm.StopAll()
-		return err
-	case <-ctx.Done():
-		tm.StopAll()
-		wg.Wait()
-		return ctx.Err()
-	}
+	// Create shared tunnel
+	st := NewSharedTunnel(tm.ServerAddr, tm.Token, tunnelMap)
+	st.SetEventBus(tm.eventBus)
+	st.SetStats(tm.stats)
+	st.SetForce(tm.Force)
+	st.SetNoCache(tm.NoCache)
+
+	tm.sharedTunnel = st
+
+	// Create cancellable context
+	tunnelCtx, cancel := context.WithCancel(ctx)
+	tm.cancelFunc = cancel
+	tm.mu.Unlock()
+
+	// Start shared tunnel with reconnection
+	return st.StartWithReconnect(tunnelCtx, nil)
 }
 
 // StopAll stops all running tunnels
@@ -114,9 +113,15 @@ func (tm *TunnelManager) StopAll() {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
-	for _, mt := range tm.tunnels {
-		if mt.Cancel != nil {
-			mt.Cancel()
-		}
+	if tm.cancelFunc != nil {
+		tm.cancelFunc()
+		tm.cancelFunc = nil
+	}
+
+	if tm.sharedTunnel != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*1e9) // 5 seconds
+		defer cancel()
+		tm.sharedTunnel.Shutdown(ctx)
+		tm.sharedTunnel = nil
 	}
 }

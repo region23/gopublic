@@ -82,6 +82,7 @@ func init() {
 	startCmd.Flags().Bool("tui", true, "Enable terminal UI (default: true for interactive terminals)")
 	startCmd.Flags().Bool("no-tui", false, "Disable terminal UI")
 	startCmd.Flags().BoolP("force", "f", false, "Force connect, replacing any existing session")
+	startCmd.Flags().Bool("no-cache", false, "Add Cache-Control: no-store header to all responses (useful for development)")
 }
 
 func runStart(cmd *cobra.Command, args []string) {
@@ -96,8 +97,9 @@ func runStart(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	// Get force flag
+	// Get flags
 	forceFlag, _ := cmd.Flags().GetBool("force")
+	noCacheFlag, _ := cmd.Flags().GetBool("no-cache")
 
 	// Check local lock file
 	if err := config.AcquireLock(); err != nil {
@@ -152,11 +154,11 @@ func runStart(cmd *cobra.Command, args []string) {
 
 	if projectErr == nil && (allFlag || len(args) == 0) {
 		// Multi-tunnel mode from gopublic.yaml
-		runMultiTunnel(ctx, cfg, projectCfg, eventBus, statsTracker, useTUI, forceFlag)
+		runMultiTunnel(ctx, cfg, projectCfg, eventBus, statsTracker, useTUI, forceFlag, noCacheFlag)
 	} else if len(args) == 1 {
 		// Single tunnel mode
 		port := args[0]
-		runSingleTunnel(ctx, cfg, port, eventBus, statsTracker, useTUI, forceFlag)
+		runSingleTunnel(ctx, cfg, port, eventBus, statsTracker, useTUI, forceFlag, noCacheFlag)
 	} else {
 		fmt.Fprintln(os.Stderr, "Either provide a port or create gopublic.yaml config file")
 		os.Exit(1)
@@ -187,7 +189,7 @@ func shouldUseTUI(cmd *cobra.Command) bool {
 	return true
 }
 
-func runSingleTunnel(ctx context.Context, cfg *config.Config, port string, eventBus *events.Bus, statsTracker *stats.Stats, useTUI bool, force bool) {
+func runSingleTunnel(ctx context.Context, cfg *config.Config, port string, eventBus *events.Bus, statsTracker *stats.Stats, useTUI bool, force bool, noCache bool) {
 	// Configure replay with local port
 	inspector.SetLocalPort(port)
 
@@ -196,6 +198,7 @@ func runSingleTunnel(ctx context.Context, cfg *config.Config, port string, event
 	t.SetEventBus(eventBus)
 	t.SetStats(statsTracker)
 	t.SetForce(force)
+	t.SetNoCache(noCache)
 
 	if useTUI {
 		// Run with TUI
@@ -216,11 +219,12 @@ func runSingleTunnel(ctx context.Context, cfg *config.Config, port string, event
 	}
 }
 
-func runMultiTunnel(ctx context.Context, cfg *config.Config, projectCfg *config.ProjectConfig, eventBus *events.Bus, statsTracker *stats.Stats, useTUI bool, force bool) {
+func runMultiTunnel(ctx context.Context, cfg *config.Config, projectCfg *config.ProjectConfig, eventBus *events.Bus, statsTracker *stats.Stats, useTUI bool, force bool, noCache bool) {
 	manager := tunnel.NewTunnelManager(ServerAddr, cfg.Token)
 	manager.SetForce(force)
 	manager.SetEventBus(eventBus)
 	manager.SetStats(statsTracker)
+	manager.SetNoCache(noCache)
 
 	// Set first tunnel port for replay
 	for _, t := range projectCfg.Tunnels {

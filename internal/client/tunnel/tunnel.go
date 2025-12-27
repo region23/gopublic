@@ -37,6 +37,7 @@ type Tunnel struct {
 	LocalPort  string
 	Subdomain  string // Specific subdomain to bind (empty = bind all)
 	Force      bool   // Force disconnect existing session
+	NoCache    bool   // Add Cache-Control: no-store to responses
 
 	// TLS configuration
 	TLSConfig *TLSConfig
@@ -84,6 +85,11 @@ func (t *Tunnel) SetTLSConfig(cfg *TLSConfig) {
 // SetForce sets the force flag to disconnect existing session.
 func (t *Tunnel) SetForce(force bool) {
 	t.Force = force
+}
+
+// SetNoCache enables Cache-Control: no-store header on all responses.
+func (t *Tunnel) SetNoCache(noCache bool) {
+	t.NoCache = noCache
 }
 
 // BoundDomains returns the domains bound to this tunnel.
@@ -440,6 +446,11 @@ func (t *Tunnel) proxyStream(remote net.Conn) {
 		Duration: duration,
 		Bytes:    totalBytes,
 	})
+
+	// Add Cache-Control header if --no-cache flag is set
+	if t.NoCache {
+		resp.Header.Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	}
 
 	// Forward Response back to Remote
 	if err := resp.Write(remote); err != nil {
