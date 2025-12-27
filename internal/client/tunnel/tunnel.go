@@ -353,8 +353,9 @@ func (t *Tunnel) proxyStream(remote net.Conn) {
 	// Dial Local
 	local, err := net.Dial("tcp", "localhost:"+t.LocalPort)
 	if err != nil {
-		logger.Error("Failed to dial local port %s: %v", t.LocalPort, err)
-		t.publishEvent(events.EventError, events.ErrorData{Error: err, Context: "dial_local"})
+		friendlyMsg := formatLocalDialError(t.LocalPort, err)
+		logger.Error("%s", friendlyMsg)
+		t.publishEvent(events.EventError, events.ErrorData{Error: fmt.Errorf("%s", friendlyMsg), Context: "dial_local"})
 		return
 	}
 	defer local.Close()
@@ -516,4 +517,29 @@ func (t *Tunnel) Shutdown(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+// formatLocalDialError returns a user-friendly error message for local port connection failures.
+func formatLocalDialError(port string, err error) string {
+	errStr := err.Error()
+
+	// Connection refused (Linux/Mac) or connectex (Windows)
+	if strings.Contains(errStr, "connection refused") ||
+		strings.Contains(errStr, "connectex") {
+		return fmt.Sprintf(
+			"No service running on port %s. Start your local server before using the tunnel.",
+			port,
+		)
+	}
+
+	// Timeout
+	if strings.Contains(errStr, "timeout") || strings.Contains(errStr, "timed out") {
+		return fmt.Sprintf(
+			"Connection to port %s timed out. Check that your service is responding.",
+			port,
+		)
+	}
+
+	// Unknown error - show original for debugging
+	return fmt.Sprintf("Failed to connect to port %s: %v", port, err)
 }

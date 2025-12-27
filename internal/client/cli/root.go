@@ -219,6 +219,8 @@ func runSingleTunnel(ctx context.Context, cfg *config.Config, port string, event
 func runMultiTunnel(ctx context.Context, cfg *config.Config, projectCfg *config.ProjectConfig, eventBus *events.Bus, statsTracker *stats.Stats, useTUI bool, force bool) {
 	manager := tunnel.NewTunnelManager(ServerAddr, cfg.Token)
 	manager.SetForce(force)
+	manager.SetEventBus(eventBus)
+	manager.SetStats(statsTracker)
 
 	// Set first tunnel port for replay
 	for _, t := range projectCfg.Tunnels {
@@ -229,9 +231,6 @@ func runMultiTunnel(ctx context.Context, cfg *config.Config, projectCfg *config.
 	for name, t := range projectCfg.Tunnels {
 		manager.AddTunnel(name, t.Addr, t.Subdomain)
 	}
-
-	// TODO: Inject eventBus and stats into manager tunnels
-	// For now, multi-tunnel mode doesn't have full TUI integration
 
 	if useTUI {
 		// Run with TUI

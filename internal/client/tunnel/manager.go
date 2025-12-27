@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"sync"
 
+	"gopublic/internal/client/events"
 	"gopublic/internal/client/logger"
+	"gopublic/internal/client/stats"
 )
 
 // TunnelManager coordinates multiple tunnel connections
@@ -15,6 +17,8 @@ type TunnelManager struct {
 	Force      bool // Force disconnect existing sessions
 	tunnels    []*ManagedTunnel
 	mu         sync.Mutex
+	eventBus   *events.Bus
+	stats      *stats.Stats
 }
 
 // ManagedTunnel wraps a tunnel with its metadata
@@ -39,6 +43,16 @@ func (tm *TunnelManager) SetForce(force bool) {
 	tm.Force = force
 }
 
+// SetEventBus sets the event bus for all tunnels
+func (tm *TunnelManager) SetEventBus(eventBus *events.Bus) {
+	tm.eventBus = eventBus
+}
+
+// SetStats sets the stats tracker for all tunnels
+func (tm *TunnelManager) SetStats(stats *stats.Stats) {
+	tm.stats = stats
+}
+
 // AddTunnel adds a tunnel configuration to the manager
 func (tm *TunnelManager) AddTunnel(name, localPort, subdomain string) {
 	tm.mu.Lock()
@@ -47,6 +61,8 @@ func (tm *TunnelManager) AddTunnel(name, localPort, subdomain string) {
 	t := NewTunnel(tm.ServerAddr, tm.Token, localPort)
 	t.Subdomain = subdomain
 	t.Force = tm.Force
+	t.SetEventBus(tm.eventBus)
+	t.SetStats(tm.stats)
 
 	mt := &ManagedTunnel{
 		Name:      name,
